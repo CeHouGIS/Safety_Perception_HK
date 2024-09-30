@@ -1,4 +1,6 @@
 # python /code/LLM-crime/generate_dataset.py --age "30" --gender "male" --location "HongKong" --event "murder"
+# python /code/LLM-crime/generate_dataset.py --age "30" --gender "female" --location "HongKong" --event "murder"
+
 import numpy as np
 import pandas as pd
 import torch
