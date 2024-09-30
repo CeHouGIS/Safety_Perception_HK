@@ -28,6 +28,8 @@ parser.add_argument('--event', default=None, type=str,
                     help='event of virtual agent for safety perception')
 parser.add_argument('--sample-size', default=1000, type=int,
                     help='event of virtual agent for safety perception')
+parser.add_argument('--max-new-tokens', default=512, type=int,
+                    help='event of virtual agent for safety perception')
 
 def count_characters(s):
     return len(s)
@@ -48,20 +50,20 @@ def get_img(idx,GSV_rootpath):
     # plt.axis('off')
     return GSV_img
 
-def chat_process(question_list):
+def chat_process(question_list,max_new_tokens=1024):
     for i, question in enumerate(question_list):
         # print(f"chat round {i}")
         if i == 0:
             conversation = chatbot.generate_conversation(result=None, next_question=question[0], image=None)
-            answer = chatbot.dialogue(conversation,max_new_tokens=1024)
+            answer = chatbot.dialogue(conversation,max_new_tokens=max_new_tokens)
         else:
             # print(f"conversation: {conversation}\n")
             if question[1] is not None:
                 conversation = chatbot.generate_conversation(answer, question[0], image=True)
-                answer = chatbot.dialogue(conversation, GSV_img=question[1],max_new_tokens=1024)
+                answer = chatbot.dialogue(conversation, GSV_img=question[1],max_new_tokens=max_new_tokens)
             else:
                 conversation = chatbot.generate_conversation(result=answer, next_question=question[0], image=None)
-                answer = chatbot.dialogue(conversation,max_new_tokens=1024)
+                answer = chatbot.dialogue(conversation,max_new_tokens=max_new_tokens)
                 
         # Clear GPU memory
         torch.cuda.empty_cache()
@@ -126,7 +128,7 @@ if __name__ == '__main__':
             ["Taking into account all the above points, what is your overall view of the safety perception in this location? Please answer this question within 500 words.", None]
             # ["Now, we try to focus on the females, if you were to evaluate the safety perception of women in their 30s, and rate the results from 1 to 10, with 1 being the least safe and 10 being the safest, what results would you give? Please note that if the information given in the image is insufficient to reflect the characteristics, it will be marked 'not applicable'.", GSV_img]
         ]
-        answer = chat_process(question_list)
+        answer = chat_process(question_list,max_new_tokens=args.max_new_tokens)
         # answer_list.append([idx, answer])
         dataset_list.append(generate_dataset_unit(idx, GSV_metadata.iloc[idx]['panoid'], GSV_rootpath, answer, profile))
         with open(f'/data_nas/cehou/LLM_safety/dataset_{args.age}_{args.gender}_{args.location}_{args.event}_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}_{i}.pkl', 'wb') as f:
