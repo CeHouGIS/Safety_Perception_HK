@@ -25,7 +25,7 @@ class CFG:
     debug = False
     image_path = "../input/flickr-image-dataset/flickr30k_images/flickr30k_images"
     captions_path = "."
-    batch_size = 5
+    batch_size = 40
     num_workers = 4
     head_lr = 1e-3
     image_encoder_lr = 1e-4
@@ -33,7 +33,7 @@ class CFG:
     weight_decay = 1e-3
     patience = 1
     factor = 0.8
-    epochs = 20
+    epochs = 200
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model_name = 'resnet50'
@@ -305,7 +305,7 @@ def train_epoch(model, train_loader, optimizer, lr_scheduler, step):
         count = batch["image"].size(0)
         loss_meter.update(loss.item(), count)
         tqdm_object.set_postfix(train_loss=loss_meter.avg, lr=get_lr(optimizer))
-    return loss_meter, loss.item()
+    return loss_meter
 
 
 def valid_epoch(model, valid_loader):
@@ -361,8 +361,8 @@ def main(dataset_path, save_model_path):
     for epoch in range(CFG.epochs):
         print(f"Epoch: {epoch + 1}")
         model.train()
-        train_loss, train_loss_value = train_epoch(model, train_loader, optimizer, lr_scheduler, step)
-        run["train/train_loss"].append(train_loss_value)
+        train_loss = train_epoch(model, train_loader, optimizer, lr_scheduler, step)
+        run["train/train_loss"].append(train_loss.avg)
         model.eval()
         with torch.no_grad():
             valid_loss = valid_epoch(model, valid_loader)
