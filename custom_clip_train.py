@@ -323,9 +323,9 @@ def valid_epoch(model, valid_loader):
     return loss_meter
 
 
-def main():
+def main(dataset_path, save_model_path):
      
-    dataset_path = "/data_nas/cehou/LLM_safety/dataset_30_male_HongKong_murder_20.pkl"
+    
     df = pd.read_pickle(dataset_path)
     
     # train_df, valid_df = make_train_valid_dfs()
@@ -368,11 +368,14 @@ def main():
         
         if valid_loss.avg < best_loss:
             best_loss = valid_loss.avg
-            torch.save(model.state_dict(), "/code/CLIP_LLM_model/best.pt")
+            torch.save(model.state_dict(), save_model_path)
             print("Saved Best Model!")
         
         lr_scheduler.step(valid_loss.avg)
         run["train/valid_loss"].append(valid_loss.avg)
         
 if __name__ == '__main__':
-    main()
+    dataset_path = "/data_nas/cehou/LLM_safety/dataset_30_female_HongKong_murder_746.pkl"
+    dataset_config = dataset_path.split("/")[-1].split("_")
+    save_model_path = f"/code/CLIP_LLM_model/model_{dataset_config[1]}_{dataset_config[2]}_{dataset_config[3]}_{dataset_config[4]}.pt"
+    main(dataset_path, save_model_path)
