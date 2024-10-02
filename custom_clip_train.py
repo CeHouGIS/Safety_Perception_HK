@@ -378,5 +378,5 @@ def main(dataset_path, save_model_path):
 if __name__ == '__main__':
     dataset_path = "/data_nas/cehou/LLM_safety/dataset_30_female_HongKong_murder_746.pkl"
     dataset_config = dataset_path.split("/")[-1].split("_")
-    save_model_path = f"/code/CLIP_LLM_model/model_{dataset_config[1]}_{dataset_config[2]}_{dataset_config[3]}_{dataset_config[4]}.pt"
+    save_model_path = f"/data_nas/cehou/LLM_safety/model/model_{dataset_config[1]}_{dataset_config[2]}_{dataset_config[3]}_{dataset_config[4]}.pt"
     main(dataset_path, save_model_path)
