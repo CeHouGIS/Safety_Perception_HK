@@ -48,7 +48,7 @@ class CFG:
     temperature = 1.0
 
     # image size
-    size = (320, 1280)  # (height, width)
+    size = (int(320/2), int(1280/2))  # (height, width)
 
     # for projection head; used for both image and text encoders
     num_projection_layers = 1
