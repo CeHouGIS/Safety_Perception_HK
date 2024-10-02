@@ -331,8 +331,9 @@ def main(dataset_path, save_model_path):
     # train_df, valid_df = make_train_valid_dfs()
     tokenizer = DistilBertTokenizer.from_pretrained(CFG.text_tokenizer)
     
-    train_loader = build_loaders(df[:10], tokenizer, mode="train")
-    valid_loader = build_loaders(df[10:], tokenizer, mode="valid")
+    train_num = int(len(df) * 0.7)
+    train_loader = build_loaders(df[:train_num], tokenizer, mode="train")
+    valid_loader = build_loaders(df[train_num:], tokenizer, mode="valid")
 
 
     model = CLIPModel().to(CFG.device)
