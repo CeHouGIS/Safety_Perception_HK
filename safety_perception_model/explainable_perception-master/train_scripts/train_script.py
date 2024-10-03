@@ -7,10 +7,10 @@ from ignite.handlers import ModelCheckpoint
 from random import randint
 
 from utils.ranking import *
-from utils.log import console_log, comet_log
+from utils.log import console_log
 from utils.accuracy import RankAccuracy
 
-def train(device, net, dataloader, val_loader, args, logger, experiment):
+def train(device, net, dataloader, val_loader, args, logger):
     def update(engine, data):
         # Load training sample
         input_left, input_right, label, left_original = data['left_image'], data['right_image'], data['winner'], data['left_image_original']
@@ -95,12 +95,7 @@ def train(device, net, dataloader, val_loader, args, logger, experiment):
                 'val_acc': evaluator.state.metrics['acc'],
                 'val_loss':evaluator.state.metrics['loss']
             }
-        comet_log(
-            metrics,
-            experiment,
-            epoch=trainer.state.epoch,
-            step=trainer.state.epoch,
-        )
+
         console_log(metrics,{},trainer.state.epoch)
 
     @trainer.on(Events.ITERATION_COMPLETED)
@@ -110,12 +105,7 @@ def train(device, net, dataloader, val_loader, args, logger, experiment):
             metrics = {
                     'train_loss':trainer.state.metrics['loss'],
                 }
-            comet_log(
-                metrics,
-                experiment,
-                step=trainer.state.iteration,
-                epoch=trainer.state.epoch
-            )
+
             console_log(
                 metrics,
                 {},

@@ -2,7 +2,7 @@
 
 ## dependencies
 import argparse
-from comet_ml import Experiment
+# from comet_ml import Experiment
 import torch
 from torchvision import transforms
 from torch.utils.data import DataLoader
@@ -132,21 +132,5 @@ if __name__ == '__main__':
         ))))
 
     # Model training feedback is handled by comet, change this based on your own account configuration
-    experiment = Experiment(api_key="qTgbDpkUcJu1JZbDVUGudcgld",
-                            project_name="urban-space-perception",
-                            workspace="rsangers")
-
-    # Add experiment-specific tags
     tags = [args.premodel, args.attribute, args.model]
-    experiment.add_tags(tags)
-    experiment.log_parameters(
-        {
-            "batch_size": args.batch_size,
-            "finetune": args.finetune,
-            "attribute": args.attribute,
-            "model": args.model,
-            "premodel": args.premodel
-        }
-    )
-
-    train(device, net, dataloader, val_loader, args, logger, experiment)
+    train(device, net, dataloader, val_loader, args, logger)
