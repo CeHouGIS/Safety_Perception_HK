@@ -1,4 +1,4 @@
-# python /code/LLM-crime/generate_dataset.py --age "" --gender "baseline" --location "" --event ""
+# python /code/LLM-crime/generate_dataset.py --age "" --gender "baseline" --location "" --event "" --specific-img True
 # python /code/LLM-crime/generate_dataset.py --age "30" --gender "male" --location "HongKong" --event "murder"
 # python /code/LLM-crime/generate_dataset.py --age "30" --gender "female" --location "HongKong" --event "murder"
 
@@ -26,6 +26,8 @@ parser.add_argument('--gender', default=None, type=str,
 parser.add_argument('--location', default=None, type=str,
                     help='location of virtual agent')
 parser.add_argument('--event', default=None, type=str,
+                    help='event of virtual agent for safety perception')
+parser.add_argument('--specific-img', default=False, type=bool,
                     help='event of virtual agent for safety perception')
 parser.add_argument('--sample-size', default=1000, type=int,
                     help='event of virtual agent for safety perception')
@@ -100,7 +102,11 @@ if __name__ == '__main__':
     # GSV dataset
     GSV_metadata_path = '/data_nas/GoogleSV/metadata/China/HongKong/pano_2024-08-17 13:11:09.125553_23512.p' # Hong Kong SVI
     GSV_metadata = pd.read_pickle(GSV_metadata_path)
-    random_indices = GSV_metadata.sample(n=args.sample_size).index.tolist()
+    if args.specific_img == False:  
+        random_indices = GSV_metadata.sample(n=args.sample_size).index.tolist()
+    else:
+        ls = pd.read_pickle("/data_nas/cehou/LLM_safety/dataset_30_female_HongKong_murder_746.pkl")
+        random_indices = [i["GSV_idx"] for i in ls]
     # idx = random_indices[0]
 
     profile = {
