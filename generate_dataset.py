@@ -105,6 +105,7 @@ if __name__ == '__main__':
     if args.specific_img == False:  
         random_indices = GSV_metadata.sample(n=args.sample_size).index.tolist()
     else:
+        print("Using specific image index")
         ls = pd.read_pickle("/data_nas/cehou/LLM_safety/dataset_30_female_HongKong_murder_746.pkl")
         random_indices = [i["GSV_idx"] for i in ls]
     # idx = random_indices[0]
