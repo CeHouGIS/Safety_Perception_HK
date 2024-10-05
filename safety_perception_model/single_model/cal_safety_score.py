@@ -1,3 +1,5 @@
+# python /code/LLM-crime/safety_perception_model/single_model/cal_safety_score.py
+
 import pandas as pd
 import os
 import warnings
@@ -5,6 +7,7 @@ import numpy as np
 from tqdm import tqdm
 warnings.filterwarnings("ignore")
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from multiprocessing import Pool
 
 def cal_P_and_N(select_id, category, data):
     data_test = data[(data['left_id'] == select_id) | (data['right_id'] == select_id)]
@@ -83,11 +86,22 @@ if __name__ == '__main__':
     category = data['category'].value_counts().index.tolist()
     
     Q_ls = []
-    with ThreadPoolExecutor(max_workers=50) as executor:
-        futures = [executor.submit(calculate_Q_for_image, img_id) for img_id in tqdm(img_id_ls)]
-        for future in as_completed(futures):
-            Q_ls.extend(future.result())
-            print(len(Q_ls))
-            if len(Q_ls) % 100 == 0:
-                Q_df = pd.DataFrame(Q_ls, columns=['Image_ID', 'Category', 'Q_Value'])
-                Q_df.to_csv("/data_nas/cehou/LLM_safety/image_perception.csv", index=False)
+    
+    # with ThreadPoolExecutor(max_workers=10) as executor:
+    #     futures = [executor.submit(calculate_Q_for_image, img_id) for img_id in tqdm(img_id_ls)]
+    #     print(len(futures))
+    #     for future in as_completed(futures):
+    #         Q_ls.extend(future.result())
+    #         print(len(Q_ls),"images have been processed, save to /data_nas/cehou/LLM_safety/image_perception.csv")
+    #         Q_df = pd.DataFrame(Q_ls, columns=['Image_ID', 'Category', 'Q_Value'])
+    #         Q_df.to_csv("/data_nas/cehou/LLM_safety/image_perception.csv", index=False)
+    def calculate_Q_for_image_wrapper(args):
+        return calculate_Q_for_image(*args)
+
+    with Pool(processes=50) as pool:
+        results = list(tqdm(pool.imap(calculate_Q_for_image_wrapper, [(img_id,) for img_id in img_id_ls]), total=len(img_id_ls)))
+        for result in results:
+            Q_ls.extend(result)
+            print(len(Q_ls), "images have been processed, save to /data_nas/cehou/LLM_safety/image_perception.csv")
+            Q_df = pd.DataFrame(Q_ls, columns=['Image_ID', 'Category', 'Q_Value'])
+            Q_df.to_csv("/data_nas/cehou/LLM_safety/image_perception.csv", index=False)
