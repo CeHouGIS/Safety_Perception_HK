@@ -1,4 +1,4 @@
-# python /code/LLM-crime/generate_dataset.py --age "_" --gender "baseline" --location "_" --event "_"
+# python /code/LLM-crime/generate_dataset.py --age "" --gender "baseline" --location "" --event ""
 # python /code/LLM-crime/generate_dataset.py --age "30" --gender "male" --location "HongKong" --event "murder"
 # python /code/LLM-crime/generate_dataset.py --age "30" --gender "female" --location "HongKong" --event "murder"
 
