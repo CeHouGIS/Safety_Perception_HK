@@ -1,4 +1,4 @@
-# python /code/LLM-crime/generate_dataset.py --age "" --gender "baseline" --location "" --event "" --specific-img True
+# python /code/LLM-crime/generate_dataset.py --age "" --gender "baseline" --location "" --event "" --specific-img True --start-from 150
 # python /code/LLM-crime/generate_dataset.py --age "30" --gender "male" --location "HongKong" --event "murder"
 # python /code/LLM-crime/generate_dataset.py --age "30" --gender "female" --location "HongKong" --event "murder"
 
@@ -28,6 +28,8 @@ parser.add_argument('--location', default=None, type=str,
 parser.add_argument('--event', default=None, type=str,
                     help='event of virtual agent for safety perception')
 parser.add_argument('--specific-img', default=False, type=bool,
+                    help='event of virtual agent for safety perception')
+parser.add_argument('--start-from', default=0, type=int,
                     help='event of virtual agent for safety perception')
 parser.add_argument('--sample-size', default=1000, type=int,
                     help='event of virtual agent for safety perception')
@@ -121,8 +123,8 @@ if __name__ == '__main__':
 
     print("Start generating dateset")
     dataset_list = []
-    i = 0
-    for idx in tqdm(random_indices):
+    i = args.start_from
+    for idx in tqdm(random_indices[i:]):
         print(f"Processing {idx}")
         GSV_img = get_img(idx, GSV_rootpath)
         
