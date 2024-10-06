@@ -99,9 +99,9 @@ if __name__ == '__main__':
         return calculate_Q_for_image(*args)
 
     with Pool(processes=50) as pool:
-        results = list(tqdm(pool.imap(calculate_Q_for_image_wrapper, [(img_id,) for img_id in img_id_ls]), total=len(img_id_ls)))
+        results = list(tqdm(pool.imap(calculate_Q_for_image_wrapper, [(img_id,) for img_id in img_id_ls]), total=6*len(img_id_ls)))
         for result in results:
             Q_ls.extend(result)
             print(len(Q_ls), "images have been processed, save to /data_nas/cehou/LLM_safety/image_perception.csv")
             Q_df = pd.DataFrame(Q_ls, columns=['Image_ID', 'Category', 'Q_Value'])
-            Q_df.to_csv("/data_nas/cehou/LLM_safety/image_perception.csv", index=False)
+            Q_df.to_csv("/data_nas/cehou/LLM_safety/PlacePulse2.0/image_perception.csv", index=False)

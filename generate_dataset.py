@@ -1,4 +1,4 @@
-# python /code/LLM-crime/generate_dataset.py --age "" --gender "baseline" --location "" --event "" --specific-img True --start-from 150
+# python /code/LLM-crime/generate_dataset.py --age "" --gender "baseline" --location "" --event "" --specific-img True
 # python /code/LLM-crime/generate_dataset.py --age "30" --gender "male" --location "HongKong" --event "murder"
 # python /code/LLM-crime/generate_dataset.py --age "30" --gender "female" --location "HongKong" --event "murder"
 
@@ -110,7 +110,6 @@ if __name__ == '__main__':
         print("Using specific image index")
         ls = pd.read_pickle("/data_nas/cehou/LLM_safety/dataset_30_female_HongKong_murder_746.pkl")
         random_indices = [i["GSV_idx"] for i in ls]
-    # idx = random_indices[0]
 
     profile = {
         "age": args.age,
