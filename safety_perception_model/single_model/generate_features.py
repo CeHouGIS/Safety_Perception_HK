@@ -68,7 +68,7 @@ def get_features(data_loader, model, state_dict, device):
             new_state_dict[k] = v
 
     # Load the state dictionary into the model
-    model.load_state_dict(new_state_dict, strict=False).to(device)
+    model.load_state_dict(new_state_dict, strict=False)
     # Set the model to evaluation mode
     model.eval()
     # Get the results
@@ -96,6 +96,5 @@ def generate_features(data_path, model_path, device):
     transform = get_transforms((int(320/2), int(1280/2)))
     image_dataset = ImageDataset(df, transform=transform)
     data_loader = torch.utils.data.DataLoader(image_dataset, batch_size=32, shuffle=True)
-    print(f"device: {device}")
     result = get_features(data_loader, model, state_dict, device)
     return result
