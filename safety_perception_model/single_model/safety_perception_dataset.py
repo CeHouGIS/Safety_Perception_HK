@@ -39,7 +39,7 @@ def get_transforms(resize_size):
         ]
     )    
 
-def create_dataset_from_df(data, with_nan=False):
+def create_dataset_from_df(data, with_nan=False, save=True):
     data_group = data.groupby("Image_ID")
     data_ls = []
     if with_nan:
@@ -55,4 +55,7 @@ def create_dataset_from_df(data, with_nan=False):
                     "Image_ID": name,
                     "labels": np.array(group['Q_Value'])
                 })
+    
+    if save:
+        np.save("/data_nas/cehou/LLM_safety/PlacePulse2.0/train_data_ls.npy", data_ls)
     return data_ls

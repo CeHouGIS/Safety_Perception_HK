@@ -1,5 +1,6 @@
 # python /code/LLM-crime/safety_perception_model/single_model/safety_train.py
 
+import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -22,8 +23,13 @@ def get_transforms(resize_size):
 
 
 image_size = (300,400)
-data = pd.read_csv("/data_nas/cehou/LLM_safety/PlacePulse2.0/image_perception.csv")
-data_ls = create_dataset_from_df(data, with_nan=False)
+if os.path.exists("/data_nas/cehou/LLM_safety/PlacePulse2.0/train_data_ls.npy"):
+    print("Loading data from file.")
+    data_ls = np.load("/data_nas/cehou/LLM_safety/PlacePulse2.0/train_data_ls.npy", allow_pickle=True)
+else:
+    data = pd.read_csv("/data_nas/cehou/LLM_safety/PlacePulse2.0/image_perception.csv")
+    data_ls = create_dataset_from_df(data, with_nan=False)
+
 transform = get_transforms(image_size)
 safety_dataset = SafetyPerceptionDataset(data_ls, transform=transform)
 data_loader = torch.utils.data.DataLoader(safety_dataset, batch_size=32, shuffle=True)
@@ -33,25 +39,25 @@ print(f"Using device: {device}")
 
 # Initialize the model, loss function, and optimizer
 # Initialize the model, loss function, and optimizer
-input_dim = 32  # Example value, replace with actual input dimension
-model_dim = 512  # Example value, replace with actual model dimension
-num_heads = 8  # Example value, replace with actual number of heads
-num_layers = 6  # Example value, replace with actual number of layers
-output_dim = 6  # Example value, replace with actual output dimension
+input_dim = 3
+model_dim = 512  
+num_heads = 8  
+num_layers = 6  
+output_dim = 6  
 
 
 model = TransformerRegressionModel(input_dim, model_dim, num_heads, num_layers, output_dim).to(device)
-print(model)
+# print(model)
 criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 # Training loop
-num_epochs = 10
+num_epochs = 100
 for epoch in range(num_epochs):
     model.train()
     running_loss = 0.0
-    for images, labels in data_loader:
-        images, labels = images.to(device), labels.to(device) # torch.Size([32, 3, 300, 400]), torch.Size([32, 6])
+    for images, labels in tqdm(data_loader):
+        images, labels = images.to(device), labels.to(device).float() # torch.Size([32, 3, 300, 400]), torch.Size([32, 6])
 
         optimizer.zero_grad()
         outputs = model(images)
@@ -60,6 +66,7 @@ for epoch in range(num_epochs):
         optimizer.step()
 
         running_loss += loss.item()
+        print("Loss: ", loss.item())
 
     print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {running_loss/len(data_loader):.4f}")
 
