@@ -11,6 +11,7 @@ from torch.utils.data import Dataset
 from PIL import Image
 import torchvision.transforms as transforms
 from safety_perception_dataset import *
+import neptune
 
 def get_transforms(resize_size):
     return transforms.Compose(
@@ -31,8 +32,10 @@ else:
     data_ls = create_dataset_from_df(data, with_nan=False)
 
 transform = get_transforms(image_size)
+split_num = int(len(data_ls) * 0.8)
 safety_dataset = SafetyPerceptionDataset(data_ls, transform=transform)
-data_loader = torch.utils.data.DataLoader(safety_dataset, batch_size=32, shuffle=True)
+train_loader = torch.utils.data.DataLoader(safety_dataset[:split_num], batch_size=32, shuffle=True)
+valid_loader = torch.utils.data.DataLoader(safety_dataset[split_num:], batch_size=32, shuffle=True)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
@@ -53,21 +56,36 @@ optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 # Training loop
 num_epochs = 100
-for epoch in range(num_epochs):
+best_loss = float('inf')
+for epoch in tqdm(range(num_epochs)):
     model.train()
     running_loss = 0.0
-    for images, labels in tqdm(data_loader):
+    for images, labels in train_loader:
         images, labels = images.to(device), labels.to(device).float() # torch.Size([32, 3, 300, 400]), torch.Size([32, 6])
 
         optimizer.zero_grad()
         outputs = model(images)
-        loss = criterion(outputs, labels)
-        loss.backward()
+        train_loss = criterion(outputs, labels)
+        train_loss.backward()
         optimizer.step()
 
-        running_loss += loss.item()
-        print("Loss: ", loss.item())
+        running_loss += train_loss.item()
+        print("Loss: ", train_loss.item())
 
-    print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {running_loss/len(data_loader):.4f}")
+    # valid
+    model.eval()
+    val_running_loss = 0.0
+    with torch.no_grad():
+        for images, labels in tqdm(valid_loader):
+            images, labels = images.to(device), labels.to(device).float()
 
-print("Training complete.")
+            outputs = model(images)
+            valid_loss = criterion(outputs, labels)
+
+            val_running_loss += valid_loss.item()
+
+    if val_running_loss < best_loss:
+        best_loss = val_running_loss
+        torch.save(model.state_dict(), "/data_nas/cehou/LLM_safety/PlacePulse2.0/model/safety_model.pth")
+        print("save the best model.")
+    print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {running_loss/len(train_loader):.4f}, Validation Loss: {val_running_loss/len(valid_loader):.4f}")
