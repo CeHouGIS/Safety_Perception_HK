@@ -13,6 +13,12 @@ import torchvision.transforms as transforms
 from safety_perception_dataset import *
 import neptune
 
+
+run = neptune.init_run(
+    project="ce-hou/Safety",
+    api_token="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJmYzFmZTZkYy1iZmY3LTQ1NzUtYTRlNi1iYTgzNjRmNGQyOGUifQ==",
+)  # your credentials
+
 def get_transforms(resize_size):
     return transforms.Compose(
         [
@@ -33,11 +39,13 @@ else:
 
 transform = get_transforms(image_size)
 split_num = int(len(data_ls) * 0.8)
-safety_dataset = SafetyPerceptionDataset(data_ls, transform=transform)
-train_loader = torch.utils.data.DataLoader(safety_dataset[:split_num], batch_size=32, shuffle=True)
-valid_loader = torch.utils.data.DataLoader(safety_dataset[split_num:], batch_size=32, shuffle=True)
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+train_dataset = SafetyPerceptionDataset(data_ls[:split_num], transform=transform)
+valid_dataset = SafetyPerceptionDataset(data_ls[split_num:], transform=transform)
+train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True)
+valid_loader = torch.utils.data.DataLoader(valid_dataset, batch_size=32)
+
+device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
 
 # Initialize the model, loss function, and optimizer
@@ -59,7 +67,7 @@ num_epochs = 100
 best_loss = float('inf')
 for epoch in tqdm(range(num_epochs)):
     model.train()
-    running_loss = 0.0
+    train_running_loss = 0.0
     for images, labels in train_loader:
         images, labels = images.to(device), labels.to(device).float() # torch.Size([32, 3, 300, 400]), torch.Size([32, 6])
 
@@ -68,24 +76,26 @@ for epoch in tqdm(range(num_epochs)):
         train_loss = criterion(outputs, labels)
         train_loss.backward()
         optimizer.step()
+        run["train/loss"].append(train_loss)
 
-        running_loss += train_loss.item()
-        print("Loss: ", train_loss.item())
+        train_running_loss += train_loss.item()
 
     # valid
     model.eval()
     val_running_loss = 0.0
     with torch.no_grad():
-        for images, labels in tqdm(valid_loader):
+        for images, labels in valid_loader:
             images, labels = images.to(device), labels.to(device).float()
-
             outputs = model(images)
             valid_loss = criterion(outputs, labels)
-
+            run["valid/loss"].append(valid_loss)
             val_running_loss += valid_loss.item()
 
     if val_running_loss < best_loss:
         best_loss = val_running_loss
         torch.save(model.state_dict(), "/data_nas/cehou/LLM_safety/PlacePulse2.0/model/safety_model.pth")
         print("save the best model.")
-    print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {running_loss/len(train_loader):.4f}, Validation Loss: {val_running_loss/len(valid_loader):.4f}")
+    
+    run["train/total_loss"].append(train_running_loss/len(train_loader))
+    run["valid/total_loss"].append(val_running_loss/len(valid_loader))
+    print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {train_running_loss/len(train_loader):.4f}, Validation Loss: {val_running_loss/len(valid_loader):.4f}")
