@@ -33,7 +33,7 @@ print(f"Using device: {device}")
 
 # Initialize the model, loss function, and optimizer
 # Initialize the model, loss function, and optimizer
-input_dim = 3  # Example value, replace with actual input dimension
+input_dim = 32  # Example value, replace with actual input dimension
 model_dim = 512  # Example value, replace with actual model dimension
 num_heads = 8  # Example value, replace with actual number of heads
 num_layers = 6  # Example value, replace with actual number of layers
@@ -41,6 +41,7 @@ output_dim = 6  # Example value, replace with actual output dimension
 
 
 model = TransformerRegressionModel(input_dim, model_dim, num_heads, num_layers, output_dim).to(device)
+print(model)
 criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
@@ -50,8 +51,7 @@ for epoch in range(num_epochs):
     model.train()
     running_loss = 0.0
     for images, labels in data_loader:
-        print(type(images), type(labels))
-        images, labels = images.to(device), labels.to(device)
+        images, labels = images.to(device), labels.to(device) # torch.Size([32, 3, 300, 400]), torch.Size([32, 6])
 
         optimizer.zero_grad()
         outputs = model(images)
