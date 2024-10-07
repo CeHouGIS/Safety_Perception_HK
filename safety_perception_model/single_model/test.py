@@ -8,5 +8,4 @@ from generate_features import generate_features
 data_path = "/data_nas/cehou/LLM_safety/dataset_baseline_746.pkl"
 model_path = "/data_nas/cehou/LLM_safety/model/model_baseline.pt"
 device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
-print(device)
 results = generate_features(data_path, model_path, device)

@@ -83,11 +83,16 @@ def get_features(data_loader, model, state_dict, device):
     return results
 
 def generate_features(data_path, model_path, device):
+    print(f"device: {device}")
+
     df = pd.read_pickle(data_path)
 
     model = ImageEncoder()
-    state_dict = torch.load(model_path)
-
+    if device == 'cpu':
+        state_dict = torch.load(model_path, map_location=torch.device('cpu'))
+    else:
+        state_dict = torch.load(model_path)
+        
     transform = get_transforms((int(320/2), int(1280/2)))
     image_dataset = ImageDataset(df, transform=transform)
     data_loader = torch.utils.data.DataLoader(image_dataset, batch_size=32, shuffle=True)
