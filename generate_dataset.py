@@ -1,5 +1,5 @@
-# python /code/LLM-crime/generate_dataset.py --age "" --gender "baseline" --location "" --event "" --specific-img True
-# python /code/LLM-crime/generate_dataset.py --age "30" --gender "male" --location "HongKong" --event "murder"
+# python /code/LLM-crime/generate_dataset.py --age "" --gender "baseline" --location "" --event "" --specific-img True 
+# python /code/LLM-crime/generate_dataset.py --device-id "cuda:2" --age "30" --gender "male" --location "HongKong" --event "murder" --specific-img True 
 # python /code/LLM-crime/generate_dataset.py --age "30" --gender "female" --location "HongKong" --event "murder"
 
 import numpy as np
@@ -19,6 +19,8 @@ import datetime
 import neptune
 
 parser = argparse.ArgumentParser(description='GSV auto download script')
+parser.add_argument('--device-id', default="cuda:3", type=str,
+                    help='event of virtual agent for safety perception')
 parser.add_argument('--age', default=None, type=str,
                     help='age of virtual agent')
 parser.add_argument('--gender', default=None, type=str,
@@ -92,9 +94,9 @@ def generate_dataset_unit(GSV_idx, GSV_name, GSV_rootpath, answer, profile):
 
 if __name__ == '__main__':
     # Load the pre-trained LLM model
-    chatbot = LLMDialogueGenerator(device='cuda:3')
     GSV_rootpath = "/data_nas/GoogleSV/images/China/HongKong"
     args = parser.parse_args()
+    chatbot = LLMDialogueGenerator(device=args.device_id)
 
     run = neptune.init_run(
         project="ce-hou/LLMData",

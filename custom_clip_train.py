@@ -23,7 +23,10 @@ warnings.filterwarnings("ignore")
 ## Parameters
 class CFG:
     debug = False
-    image_path = "../input/flickr-image-dataset/flickr30k_images/flickr30k_images"
+    dataset_path = "/data_nas/cehou/LLM_safety/dataset_30_female_HongKong_murder_746.pkl"
+    # image_path = "../input/flickr-image-dataset/flickr30k_images/flickr30k_images"
+    dataset_config = dataset_path.split("/")[-1].split("_")
+    save_model_path = f"/data_nas/cehou/LLM_safety/model/model_{dataset_config[1]}_{dataset_config[2]}_{dataset_config[3]}_{dataset_config[4]}.pt"
     captions_path = "."
     batch_size = 40
     num_workers = 4
@@ -323,9 +326,9 @@ def valid_epoch(model, valid_loader):
     return loss_meter
 
 
-def main(dataset_path, save_model_path):
+def main():
      
-    
+    dataset_path = CFG.dataset_path
     df = pd.read_pickle(dataset_path)
     
     # train_df, valid_df = make_train_valid_dfs()
@@ -335,7 +338,7 @@ def main(dataset_path, save_model_path):
     train_loader = build_loaders(df[:train_num], tokenizer, mode="train")
     valid_loader = build_loaders(df[train_num:], tokenizer, mode="valid")
 
-
+    print("use device: ", CFG.device)
     model = CLIPModel().to(CFG.device)
     params = [
         {"params": model.image_encoder.parameters(), "lr": CFG.image_encoder_lr},
@@ -369,14 +372,14 @@ def main(dataset_path, save_model_path):
         
         if valid_loss.avg < best_loss:
             best_loss = valid_loss.avg
-            torch.save(model.state_dict(), save_model_path)
+            torch.save(model.state_dict(), CFG.save_model_path)
             print("Saved Best Model!")
         
         lr_scheduler.step(valid_loss.avg)
         run["train/valid_loss"].append(valid_loss.avg)
         
 if __name__ == '__main__':
-    dataset_path = "/data_nas/cehou/LLM_safety/dataset_30_female_HongKong_murder_746.pkl"
-    dataset_config = dataset_path.split("/")[-1].split("_")
-    save_model_path = f"/data_nas/cehou/LLM_safety/model/model_{dataset_config[1]}_{dataset_config[2]}_{dataset_config[3]}_{dataset_config[4]}.pt"
-    main(dataset_path, save_model_path)
+    # dataset_path = "/data_nas/cehou/LLM_safety/dataset_30_female_HongKong_murder_746.pkl"
+    # dataset_config = dataset_path.split("/")[-1].split("_")
+    # save_model_path = f"/data_nas/cehou/LLM_safety/model/model_{dataset_config[1]}_{dataset_config[2]}_{dataset_config[3]}_{dataset_config[4]}.pt"
+    main()
