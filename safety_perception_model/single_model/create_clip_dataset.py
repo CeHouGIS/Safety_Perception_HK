@@ -10,4 +10,5 @@ model_path = "/data_nas/cehou/LLM_safety/model/model_baseline.pt"
 device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
 results = generate_features(data_path, model_path, device)
 
-results.to_pickle("/data_nas/cehou/LLM_safety/img_features/features_baseline.pkl")
+results_np = results.cpu().numpy()
+results_np.save("/data_nas/cehou/LLM_safety/img_features/features_baseline.pkl")
