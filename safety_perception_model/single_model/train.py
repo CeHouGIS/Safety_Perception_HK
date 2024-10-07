@@ -2,6 +2,24 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from models import TransformerRegressionModel
+import sys
+sys.path.append("/code/LLM-crime")
+from torch.utils.data import Dataset
+from PIL import Image
+import torchvision.transforms as transforms
+from custom_clip_train import ImageEncoder
+
+def get_transforms(resize_size):
+    return transforms.Compose(
+        [
+            transforms.Resize((resize_size[0], resize_size[1])),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ]
+    )    
+
+def generate_pred_features(dataset, model, device):
+    return None
 
 # Hyperparameters
 input_dim = 6

@@ -23,10 +23,11 @@ warnings.filterwarnings("ignore")
 ## Parameters
 class CFG:
     debug = False
-    dataset_path = "/data_nas/cehou/LLM_safety/dataset_30_female_HongKong_murder_746.pkl"
+    dataset_path = "/data_nas/cehou/LLM_safety/dataset_baseline_746.pkl"
     # image_path = "../input/flickr-image-dataset/flickr30k_images/flickr30k_images"
     dataset_config = dataset_path.split("/")[-1].split("_")
-    save_model_path = f"/data_nas/cehou/LLM_safety/model/model_{dataset_config[1]}_{dataset_config[2]}_{dataset_config[3]}_{dataset_config[4]}.pt"
+    save_model_path = f"/data_nas/cehou/LLM_safety/model/model_baseline.pt"
+    # save_model_path = f"/data_nas/cehou/LLM_safety/model/model_{dataset_config[1]}_{dataset_config[2]}_{dataset_config[3]}_{dataset_config[4]}.pt"
     captions_path = "."
     batch_size = 40
     num_workers = 4
@@ -37,7 +38,7 @@ class CFG:
     patience = 1
     factor = 0.8
     epochs = 200
-    device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
 
     model_name = 'resnet50'
     image_embedding = 2048
@@ -325,6 +326,26 @@ def valid_epoch(model, valid_loader):
         tqdm_object.set_postfix(valid_loss=loss_meter.avg)
     return loss_meter
 
+
+def make_prediction(model, test_loader):
+    model.eval()
+    predictions = []
+
+    with torch.no_grad():
+        for batch in tqdm(test_loader, total=len(test_loader)):
+            batch = {k: v.to(CFG.device) for k, v in batch.items() if k != "caption"}
+            image_features = model.image_encoder(batch["image"])
+            text_features = model.text_encoder(
+                input_ids=batch["input_ids"], attention_mask=batch["attention_mask"]
+            )
+            image_embeddings = model.image_projection(image_features)
+            text_embeddings = model.text_projection(text_features)
+            
+            logits = (text_embeddings @ image_embeddings.T) / model.temperature
+            preds = torch.argmax(logits, dim=-1)
+            predictions.extend(preds.cpu().numpy())
+
+    return predictions
 
 def main():
      
