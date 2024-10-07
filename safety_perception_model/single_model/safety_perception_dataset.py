@@ -23,9 +23,9 @@ class SafetyPerceptionDataset(Dataset):
 
     def __getitem__(self, idx):
         image = np.array(Image.open(f"{self.img_path}/{self.data[idx]['Image_ID']}.jpg"))
+        image = Image.fromarray(image)
         label = self.data[idx]["labels"]
-
-        if self.transform:
+        if self.transform:            
             image = self.transform(image)
 
         return image, label
