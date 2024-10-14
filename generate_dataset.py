@@ -1,5 +1,5 @@
-# python /code/LLM-crime/generate_dataset.py --age "" --gender "baseline" --location "" --event "" --specific-img True 
-# python /code/LLM-crime/generate_dataset.py --device-id "cuda:2" --age "30" --gender "male" --location "HongKong" --event "murder" --specific-img True 
+# python /code/LLM-crime/generate_dataset.py --age "" --gender "baseline" --location "" --event "" 
+# python /code/LLM-crime/generate_dataset.py --device-id "cuda:3" --age "30" --gender "male" --location "HongKong" --event "murder" --specific-img True 
 # python /code/LLM-crime/generate_dataset.py --age "30" --gender "female" --location "HongKong" --event "murder"
 
 import numpy as np
@@ -33,7 +33,7 @@ parser.add_argument('--specific-img', default=False, type=bool,
                     help='event of virtual agent for safety perception')
 parser.add_argument('--start-from', default=0, type=int,
                     help='event of virtual agent for safety perception')
-parser.add_argument('--sample-size', default=1000, type=int,
+parser.add_argument('--sample-size', default=200, type=int,
                     help='event of virtual agent for safety perception')
 parser.add_argument('--max-new-tokens', default=512, type=int,
                     help='event of virtual agent for safety perception')

@@ -23,7 +23,8 @@ warnings.filterwarnings("ignore")
 ## Parameters
 class CFG:
     debug = False
-    dataset_path = "/data_nas/cehou/LLM_safety/dataset_baseline_746.pkl"
+    dataset_path = "/data_nas/cehou/LLM_safety/dataset_30_male_HongKong_murder_746.pkl"
+    # dataset_path = "/data_nas/cehou/LLM_safety/dataset_baseline_746.pkl"
     # image_path = "../input/flickr-image-dataset/flickr30k_images/flickr30k_images"
     dataset_config = dataset_path.split("/")[-1].split("_")
     save_model_path = f"/data_nas/cehou/LLM_safety/model/model_baseline.pt"
