@@ -27,8 +27,8 @@ class CFG:
     # dataset_path = "/data_nas/cehou/LLM_safety/dataset_baseline_746.pkl"
     # image_path = "../input/flickr-image-dataset/flickr30k_images/flickr30k_images"
     dataset_config = dataset_path.split("/")[-1].split("_")
-    save_model_path = f"/data_nas/cehou/LLM_safety/model/model_baseline.pt"
-    # save_model_path = f"/data_nas/cehou/LLM_safety/model/model_{dataset_config[1]}_{dataset_config[2]}_{dataset_config[3]}_{dataset_config[4]}.pt"
+    # save_model_path = f"/data_nas/cehou/LLM_safety/model/model_baseline.pt"
+    save_model_path = f"/data_nas/cehou/LLM_safety/model/model_{dataset_config[1]}_{dataset_config[2]}_{dataset_config[3]}_{dataset_config[4]}.pt"
     captions_path = "."
     batch_size = 40
     num_workers = 4
@@ -39,7 +39,7 @@ class CFG:
     patience = 1
     factor = 0.8
     epochs = 200
-    device = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     model_name = 'resnet50'
     image_embedding = 2048
