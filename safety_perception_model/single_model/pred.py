@@ -30,8 +30,10 @@ num_heads = 8
 num_layers = 6  
 output_dim = 6  
 
-safety_model = TransformerRegressionModel(input_dim, model_dim, num_heads, num_layers, output_dim)[1:]
+safety_model = TransformerRegressionModel(input_dim, model_dim, num_heads, num_layers, output_dim)
+# safety_model = torch.nn.Sequential(*list(safety_model.children())[1:])
 safety_model.load_state_dict(safety_model_paras, strict=False)
+# print(safety_model)
 
 img_encoder = CLIPModel()
 img_encoder.load_state_dict(img_encoder_paras)
@@ -47,32 +49,18 @@ print(f"Using device: {device}")
 
 safety_model.to(device)
 img_encoder.to(device)
-img_feature = np.array(make_prediction(img_encoder, valid_loader)) # (datasize, 512)
+img_feature = np.array(make_prediction(img_encoder, train_loader)) # (datasize, 512)
 print(img_feature.shape)
 
 
 # Transform (datasize, 256) to (datasize, 512)
-linear_transform = torch.nn.Linear(256, 512).to(device)
+linear_transform = torch.nn.Linear(256, 360000).to(device)
 img_feature = torch.tensor(img_feature, dtype=torch.float32).to(device)
 transformed_feature = linear_transform(img_feature)
 # print(transformed_feature.shape)  # Should print (datasize, 256)
+# predictions = safety_model(transformed_feature)
 
 safety_model.eval()
 with torch.no_grad():
-    pred_list = []
-    for i, batch in enumerate(tqdm(valid_loader, total=len(valid_loader))):
-        batch = {k: v.to(device) for k, v in batch.items() if k != "caption"}
-        images = batch["image"]
-        resized_images = torch.nn.functional.interpolate(images, size=(300, 400))
-        flattened_images = resized_images.view(resized_images.size(0), -1)
-        img_feature_batch = transformed_feature[images.shape[0]*i:images.shape[0]*i+images.shape[0]]
-        # print(img_feature_batch.shape) # Should print (batchsize, 256)
-        combined_features = torch.matmul(flattened_images.T, img_feature_batch)
-    # img_feature_tensor = torch.tensor(transformed_feature, dtype=torch.float32).to(device)
-    
-        predictions = safety_model(combined_features)
-        print(predictions.shape)
-        print(predictions)
-        pred_list.append(predictions)
-    print(len(pred_list))
-    print(pred_list)
+    predictions = safety_model(transformed_feature)
+    print(predictions)
