@@ -30,7 +30,7 @@ class CFG:
     # save_model_path = f"/data_nas/cehou/LLM_safety/model/model_baseline.pt"
     save_model_path = f"/data_nas/cehou/LLM_safety/model/model_{dataset_config[1]}_{dataset_config[2]}_{dataset_config[3]}_{dataset_config[4]}.pt"
     captions_path = "."
-    batch_size = 40
+    batch_size = 20
     num_workers = 4
     head_lr = 1e-3
     image_encoder_lr = 1e-4
@@ -331,7 +331,8 @@ def valid_epoch(model, valid_loader):
 def make_prediction(model, test_loader):
     model.eval()
     predictions = []
-
+    image_embeddings_list = []
+    text_embeddings_list = []
     with torch.no_grad():
         for batch in tqdm(test_loader, total=len(test_loader)):
             batch = {k: v.to(CFG.device) for k, v in batch.items() if k != "caption"}
@@ -344,10 +345,13 @@ def make_prediction(model, test_loader):
             
             logits = (text_embeddings @ image_embeddings.T) / model.temperature
             preds = torch.argmax(logits, dim=-1)
-            print(preds.shape, preds.cpu().numpy())
             predictions.extend(preds.cpu().numpy())
-    print(predictions.shape)
-    return predictions
+            
+            image_embeddings_list.extend(image_embeddings.cpu().numpy())
+            text_embeddings_list.extend(text_embeddings.cpu().numpy())
+    # return predictions
+    return image_embeddings_list
+
 
 def main():
      

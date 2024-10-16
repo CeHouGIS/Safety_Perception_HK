@@ -13,6 +13,7 @@ sys.path.append("/code/LLM-crime")
 from custom_clip_train import CLIPModel, CLIPDataset, build_loaders, make_prediction
 from transformers import DistilBertModel, DistilBertConfig, DistilBertTokenizer
 
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 # Load the models
 safety_model_path = "/data_nas/cehou/LLM_safety/PlacePulse2.0/model/safety_model.pth"
 img_encoder_path = "/data_nas/cehou/LLM_safety/model/model_baseline.pt"
@@ -29,7 +30,7 @@ num_heads = 8
 num_layers = 6  
 output_dim = 6  
 
-safety_model = TransformerRegressionModel(input_dim, model_dim, num_heads, num_layers, output_dim)
+safety_model = TransformerRegressionModel(input_dim, model_dim, num_heads, num_layers, output_dim)[1:]
 safety_model.load_state_dict(safety_model_paras, strict=False)
 
 img_encoder = CLIPModel()
@@ -46,5 +47,32 @@ print(f"Using device: {device}")
 
 safety_model.to(device)
 img_encoder.to(device)
-output = make_prediction(img_encoder, valid_loader)
-print(output)
+img_feature = np.array(make_prediction(img_encoder, valid_loader)) # (datasize, 512)
+print(img_feature.shape)
+
+
+# Transform (datasize, 256) to (datasize, 512)
+linear_transform = torch.nn.Linear(256, 512).to(device)
+img_feature = torch.tensor(img_feature, dtype=torch.float32).to(device)
+transformed_feature = linear_transform(img_feature)
+# print(transformed_feature.shape)  # Should print (datasize, 256)
+
+safety_model.eval()
+with torch.no_grad():
+    pred_list = []
+    for i, batch in enumerate(tqdm(valid_loader, total=len(valid_loader))):
+        batch = {k: v.to(device) for k, v in batch.items() if k != "caption"}
+        images = batch["image"]
+        resized_images = torch.nn.functional.interpolate(images, size=(300, 400))
+        flattened_images = resized_images.view(resized_images.size(0), -1)
+        img_feature_batch = transformed_feature[images.shape[0]*i:images.shape[0]*i+images.shape[0]]
+        # print(img_feature_batch.shape) # Should print (batchsize, 256)
+        combined_features = torch.matmul(flattened_images.T, img_feature_batch)
+    # img_feature_tensor = torch.tensor(transformed_feature, dtype=torch.float32).to(device)
+    
+        predictions = safety_model(combined_features)
+        print(predictions.shape)
+        print(predictions)
+        pred_list.append(predictions)
+    print(len(pred_list))
+    print(pred_list)
