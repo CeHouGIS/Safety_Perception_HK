@@ -350,7 +350,7 @@ def make_prediction(model, test_loader):
             image_embeddings_list.extend(image_embeddings.cpu().numpy())
             text_embeddings_list.extend(text_embeddings.cpu().numpy())
     # return predictions
-    return image_embeddings_list
+    return image_embeddings_list, text_embeddings_list
 
 
 def main():

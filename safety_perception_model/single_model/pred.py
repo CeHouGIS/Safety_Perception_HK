@@ -49,18 +49,35 @@ print(f"Using device: {device}")
 
 safety_model.to(device)
 img_encoder.to(device)
-img_feature = np.array(make_prediction(img_encoder, train_loader)) # (datasize, 512)
-print(img_feature.shape)
+img_feature, text_feature = make_prediction(img_encoder, train_loader) # (datasize, 256)
+img_feature = np.array(img_feature)
+text_feature = np.array(text_feature)
 
+# Save img_feature to a file
+img_feature_path = "/data1/cehou_data/LLM_safety/middle_variables/baseline/img_feature.npy"
+np.save(img_feature_path, img_feature)
+text_feature_path = "/data1/cehou_data/LLM_safety/middle_variables/baseline/text_feature.npy"
+np.save(text_feature_path, text_feature)
 
 # Transform (datasize, 256) to (datasize, 512)
 linear_transform = torch.nn.Linear(256, 360000).to(device)
 img_feature = torch.tensor(img_feature, dtype=torch.float32).to(device)
 transformed_feature = linear_transform(img_feature)
+transformed_feature_path = "/data1/cehou_data/LLM_safety/middle_variables/baseline/transformed_feature.npy"
+np.save(transformed_feature_path, transformed_feature.detach().cpu().numpy())
+
+# normalization
+# mean = torch.tensor([0.485], device=device)
+# std = torch.tensor([0.229], device=device)
+# mean = mean.view(1, -1).expand_as(transformed_feature)
+# std = std.view(1, -1).expand_as(transformed_feature)
+# transformed_feature = (transformed_feature - mean) / std
 # print(transformed_feature.shape)  # Should print (datasize, 256)
 # predictions = safety_model(transformed_feature)
 
 safety_model.eval()
 with torch.no_grad():
     predictions = safety_model(transformed_feature)
+    predictions_path = "/data1/cehou_data/LLM_safety/middle_variables/baseline/predictions.npy"
+    np.save(predictions_path, predictions.cpu().numpy())
     print(predictions)
