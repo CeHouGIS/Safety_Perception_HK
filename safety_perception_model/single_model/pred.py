@@ -14,14 +14,29 @@ from custom_clip_train import CLIPModel, CLIPDataset, build_loaders, make_predic
 from transformers import DistilBertModel, DistilBertConfig, DistilBertTokenizer
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+cfg = 'female'
+
+input_paths = {
+    "safety_model": "/data_nas/cehou/LLM_safety/PlacePulse2.0/model/safety_model.pth",
+    "img_encoder": f"/data_nas/cehou/LLM_safety/model/model_30_{cfg}_HongKong_murder.pt",
+    "dataset": f"/data_nas/cehou/LLM_safety/dataset_30_{cfg}_HongKong_murder_746.pkl"
+}
+
+save_paths = {
+    "img_feature": f"/data1/cehou_data/LLM_safety/middle_variables/{cfg}/img_feature.npy",
+    "text_feature": f"/data1/cehou_data/LLM_safety/middle_variables/{cfg}/text_feature.npy",
+    "prediction": f"/data1/cehou_data/LLM_safety/middle_variables/{cfg}/predictions.npy"
+}
+
 # Load the models
-safety_model_path = "/data_nas/cehou/LLM_safety/PlacePulse2.0/model/safety_model.pth"
-img_encoder_path = "/data_nas/cehou/LLM_safety/model/model_baseline.pt"
+safety_model_path = input_paths['safety_model']
+img_encoder_path = input_paths['img_encoder']
 safety_model_paras = torch.load(safety_model_path)
 img_encoder_paras = torch.load(img_encoder_path)
 
 # Load the data
-dataset_path = "/data_nas/cehou/LLM_safety/dataset_baseline_746.pkl"
+dataset_path = input_paths['dataset']
 baseline_data = pd.read_pickle(dataset_path)
 
 input_dim = 3
@@ -54,17 +69,15 @@ img_feature = np.array(img_feature)
 text_feature = np.array(text_feature)
 
 # Save img_feature to a file
-img_feature_path = "/data1/cehou_data/LLM_safety/middle_variables/baseline/img_feature.npy"
+img_feature_path = save_paths['img_feature']
 np.save(img_feature_path, img_feature)
-text_feature_path = "/data1/cehou_data/LLM_safety/middle_variables/baseline/text_feature.npy"
+text_feature_path = save_paths['text_feature']
 np.save(text_feature_path, text_feature)
 
 # Transform (datasize, 256) to (datasize, 512)
 linear_transform = torch.nn.Linear(256, 360000).to(device)
 img_feature = torch.tensor(img_feature, dtype=torch.float32).to(device)
 transformed_feature = linear_transform(img_feature)
-transformed_feature_path = "/data1/cehou_data/LLM_safety/middle_variables/baseline/transformed_feature.npy"
-np.save(transformed_feature_path, transformed_feature.detach().cpu().numpy())
 
 # normalization
 # mean = torch.tensor([0.485], device=device)
@@ -78,6 +91,6 @@ np.save(transformed_feature_path, transformed_feature.detach().cpu().numpy())
 safety_model.eval()
 with torch.no_grad():
     predictions = safety_model(transformed_feature)
-    predictions_path = "/data1/cehou_data/LLM_safety/middle_variables/baseline/predictions.npy"
+    predictions_path = save_paths['prediction']
     np.save(predictions_path, predictions.cpu().numpy())
     print(predictions)
