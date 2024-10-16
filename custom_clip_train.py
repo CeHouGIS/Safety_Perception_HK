@@ -344,8 +344,9 @@ def make_prediction(model, test_loader):
             
             logits = (text_embeddings @ image_embeddings.T) / model.temperature
             preds = torch.argmax(logits, dim=-1)
+            print(preds.shape, preds.cpu().numpy())
             predictions.extend(preds.cpu().numpy())
-
+    print(predictions.shape)
     return predictions
 
 def main():
