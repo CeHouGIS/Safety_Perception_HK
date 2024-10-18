@@ -15,7 +15,7 @@ from transformers import DistilBertModel, DistilBertConfig, DistilBertTokenizer
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-cfg = 'female'
+cfg = 'male'
 
 input_paths = {
     "safety_model": "/data_nas/cehou/LLM_safety/PlacePulse2.0/model/safety_model.pth",
