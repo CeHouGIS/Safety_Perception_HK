@@ -116,7 +116,7 @@ def generate_dataset_unit(GSV_idx, GSV_name, GSV_rootpath, answer, profile, img_
 
 if __name__ == '__main__':
     # Load the pre-trained LLM model
-    GSV_rootpath = "/data_nas/GoogleSV/images/China/HongKong"
+
     args = parser.parse_args()
     chatbot = LLMDialogueGenerator(device=args.device_id)
 
@@ -126,10 +126,15 @@ if __name__ == '__main__':
     )  # your credentials
 
     # GSV dataset
-    # GSV_metadata_path = '/data_nas/GoogleSV/metadata/China/HongKong/pano_2024-08-17 13:11:09.125553_23512.p' # Hong Kong SVI
-    # GSV_metadata = pd.read_pickle(GSV_metadata_path)
-    GSV_metadata_path = '/data_nas/cehou/LLM_safety/PlacePulse2.0/train_data.csv' # Place Pulse SVI
-    GSV_metadata = pd.read_csv(GSV_metadata_path) 
+    if args.img_type == 'GSV':
+        GSV_rootpath = "/data_nas/GoogleSV/images/China/HongKong"
+        GSV_metadata_path = '/data_nas/GoogleSV/metadata/China/HongKong/pano_2024-08-17 13:11:09.125553_23512.p' # Hong Kong SVI
+        GSV_metadata = pd.read_pickle(GSV_metadata_path)
+    elif args.img_type == 'PlacePulse':
+        GSV_rootpath = "/data_nas/cehou/LLM_safety/PlacePulse2.0/photo_dataset/final_photo_dataset"
+        GSV_metadata_path = '/data_nas/cehou/LLM_safety/PlacePulse2.0/train_data.csv' # Place Pulse SVI
+        GSV_metadata = pd.read_csv(GSV_metadata_path) 
+        
     if args.specific_img == False:  
         # random_indices = GSV_metadata.sample(n=args.sample_size).index.tolist()
         random_indices = range(500)
@@ -152,7 +157,7 @@ if __name__ == '__main__':
     i = args.start_from
     for idx in tqdm(random_indices[i:]):
         print(f"Processing {idx}")
-        GSV_img = get_img(idx, GSV_rootpath)
+        GSV_img = get_img(GSV_metadata, idx, GSV_rootpath, img_type=args.img_type)
         
         if args.gender == "baseline":
             question_list = [
