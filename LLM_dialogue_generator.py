@@ -6,8 +6,9 @@ import re
 
 class LLMDialogueGenerator:
     def __init__(self,device="cuda:1"):
+        cache_dir = "/data1/cehou_data/LLM_safety/LLM_model"
         self.processor = LlavaNextProcessor.from_pretrained("llava-hf/llava-v1.6-mistral-7b-hf")
-        self.model = LlavaNextForConditionalGeneration.from_pretrained("llava-hf/llava-v1.6-mistral-7b-hf", torch_dtype=torch.float16, low_cpu_mem_usage=True) 
+        self.model = LlavaNextForConditionalGeneration.from_pretrained("llava-hf/llava-v1.6-mistral-7b-hf", torch_dtype=torch.float16, low_cpu_mem_usage=True, cache_dir=cache_dir) 
         self.device = torch.device(device if torch.cuda.is_available() else "cpu")
         print(f"Using device: {self.device}")
         self.model.to(self.device)
