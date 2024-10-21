@@ -17,11 +17,43 @@ from transformers import DistilBertModel, DistilBertConfig, DistilBertTokenizer
 from PIL import Image
 import torchvision.transforms as transforms
 import neptune
+import argparse
 import warnings
 warnings.filterwarnings("ignore")
 
+parser = argparse.ArgumentParser(description='GSV auto download script')
+parser.add_argument('--batch-size', default=20, type=int,
+                    help='batch size')
+parser.add_argument('--head-lr', default=1e-3, type=float,
+                    help='batch size')
+parser.add_argument('--image-encoder-lr', default=1e-4, type=float,
+                    help='batch size')
+parser.add_argument('--text-encoder-lr', default=1e-5, type=float,
+                    help='batch size')
+parser.add_argument('--weight-decay', default=1e-3, type=float,
+                    help='batch size')
+parser.add_argument('--patience', default=1, type=float,
+                    help='batch size')
+parser.add_argument('--factor', default=0.8, type=float,
+                    help='batch size')
+parser.add_argument('--epochs', default=200, type=int,
+                    help='batch size')
+parser.add_argument('--image-embedding', default=2048, type=int,
+                    help='batch size')
+parser.add_argument('--text-embedding', default=768, type=int,
+                    help='batch size')
+parser.add_argument('--max-length', default=512, type=int,
+                    help='batch size')
+parser.add_argument('--temperature', default=0.07, type=float,
+                    help='batch size')
+parser.add_argument('--projection-dim', default=256, type=int,
+                    help='batch size')
+parser.add_argument('--dropout', default=0.1, type=float,
+                    help='batch size')
+
 ## Parameters
 class CFG:
+    args = parser.parse_args()
     debug = False
     dataset_path = "/data1/cehou_data/LLM_safety/img_text_data/dataset_baseline_baseline_baseline_baseline_501.pkl"
     # dataset_path = "/data_nas/cehou/LLM_safety/dataset_baseline_746.pkl"
@@ -33,27 +65,27 @@ class CFG:
     if not os.path.exists(save_model_path):
         os.makedirs(save_model_path)
     captions_path = "."
-    batch_size = 20
+    batch_size = args.batch_size
     num_workers = 4
-    head_lr = 1e-3
-    image_encoder_lr = 1e-4
-    text_encoder_lr = 1e-5
-    weight_decay = 1e-3
-    patience = 1
-    factor = 0.8
-    epochs = 100
+    head_lr = args.head_lr
+    image_encoder_lr = args.image_encoder_lr
+    text_encoder_lr = args.text_encoder_lr
+    weight_decay = args.weight_decay
+    patience = args.patience
+    factor = args.factor
+    epochs = args.epochs
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     model_name = 'resnet50'
-    image_embedding = 2048
+    image_embedding = args.image_embedding
     text_encoder_model = "distilbert-base-uncased"
-    text_embedding = 768
+    text_embedding = args.text_embedding
     text_tokenizer = "distilbert-base-uncased"
-    max_length = 200
+    max_length = args.max_length
 
     pretrained = True # for both image encoder and text encoder
     trainable = True # for both image encoder and text encoder
-    temperature = 0.07
+    temperature = args.temperature
 
     # image size
     size = (int(300), int(400))  # (height, width)
