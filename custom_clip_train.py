@@ -41,7 +41,7 @@ class CFG:
     weight_decay = 1e-3
     patience = 1
     factor = 0.8
-    epochs = 200
+    epochs = 100
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     model_name = 'resnet50'
@@ -53,7 +53,7 @@ class CFG:
 
     pretrained = True # for both image encoder and text encoder
     trainable = True # for both image encoder and text encoder
-    temperature = 1.0
+    temperature = 0.07
 
     # image size
     size = (int(300), int(400))  # (height, width)
@@ -259,7 +259,7 @@ class CLIPModel(nn.Module):
         )
         texts_loss = cross_entropy(logits, targets, reduction='none')
         images_loss = cross_entropy(logits.T, targets.T, reduction='none')
-        loss =  (images_loss + texts_loss) / 2.0 # shape: (batch_size)
+        loss =  0.75*images_loss + 0.25*texts_loss # shape: (batch_size)
         return loss.mean()
 
 
