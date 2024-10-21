@@ -15,18 +15,18 @@ from transformers import DistilBertModel, DistilBertConfig, DistilBertTokenizer
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-cfg = 'male'
+cfg = ['baseline','baseline','baseline','baseline']
 
 input_paths = {
     "safety_model": "/data_nas/cehou/LLM_safety/PlacePulse2.0/model/safety_model.pth",
-    "img_encoder": f"/data_nas/cehou/LLM_safety/model/model_30_{cfg}_HongKong_murder.pt",
-    "dataset": f"/data_nas/cehou/LLM_safety/dataset_30_{cfg}_HongKong_murder_746.pkl"
+    "img_encoder": f"/data1/cehou_data/LLM_safety/LLM_model/clip_model/model_{cfg[0]}_{cfg[1]}_{cfg[2]}_{cfg[3]}.pt",
+    "dataset": f"/data1/cehou_data/LLM_safety/img_text_data/dataset_{cfg[0]}_{cfg[1]}_{cfg[2]}_{cfg[3]}_501.pkl"
 }
 
 save_paths = {
-    "img_feature": f"/data1/cehou_data/LLM_safety/middle_variables/{cfg}/img_feature.npy",
-    "text_feature": f"/data1/cehou_data/LLM_safety/middle_variables/{cfg}/text_feature.npy",
-    "prediction": f"/data1/cehou_data/LLM_safety/middle_variables/{cfg}/predictions.npy"
+    "img_feature": f"/data1/cehou_data/LLM_safety/middle_variables/{cfg[0]}/img_feature.npy",
+    "text_feature": f"/data1/cehou_data/LLM_safety/middle_variables/{cfg[0]}/text_feature.npy",
+    "prediction": f"/data1/cehou_data/LLM_safety/middle_variables/{cfg[0]}/predictions.npy"
 }
 
 # Load the models

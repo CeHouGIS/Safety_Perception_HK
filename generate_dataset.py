@@ -2,7 +2,8 @@
 # python /code/LLM-crime/generate_dataset.py --device-id "cuda:1" --age "baseline" --gender "baseline" --location "baseline" --event "baseline" --img-type "PlacePulse"
 
 # generate specific data
-# python /code/LLM-crime/generate_dataset.py --device-id "cuda:1" --age "30" --gender "male" --location "HongKong" --event "murder" --specific-img True --img-type "PlacePulse"
+# python /code/LLM-crime/generate_dataset.py --device-id "cuda:0" --age "30" --gender "male" --location "HongKong" --event "murder" --specific-img True --img-type "PlacePulse" --start-from 351
+# python /code/LLM-crime/generate_dataset.py --device-id "cuda:2" --age "30" --gender "female" --location "HongKong" --event "murder" --specific-img True --img-type "PlacePulse" --start-from 351
 # python /code/LLM-crime/generate_dataset.py --age "30" --gender "female" --location "HongKong" --event "murder"
 
 import numpy as np

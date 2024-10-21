@@ -23,12 +23,15 @@ warnings.filterwarnings("ignore")
 ## Parameters
 class CFG:
     debug = False
-    dataset_path = "/data_nas/cehou/LLM_safety/dataset_30_male_HongKong_murder_746.pkl"
+    dataset_path = "/data1/cehou_data/LLM_safety/img_text_data/dataset_baseline_baseline_baseline_baseline_501.pkl"
     # dataset_path = "/data_nas/cehou/LLM_safety/dataset_baseline_746.pkl"
     # image_path = "../input/flickr-image-dataset/flickr30k_images/flickr30k_images"
     dataset_config = dataset_path.split("/")[-1].split("_")
     # save_model_path = f"/data_nas/cehou/LLM_safety/model/model_baseline.pt"
-    save_model_path = f"/data_nas/cehou/LLM_safety/model/model_{dataset_config[1]}_{dataset_config[2]}_{dataset_config[3]}_{dataset_config[4]}.pt"
+    save_model_path = f"/data1/cehou_data/LLM_safety/LLM_model/clip_model"
+    save_model_name = f"model_{dataset_config[1]}_{dataset_config[2]}_{dataset_config[3]}_{dataset_config[4]}.pt"
+    if not os.path.exists(save_model_path):
+        os.makedirs(save_model_path)
     captions_path = "."
     batch_size = 20
     num_workers = 4
@@ -53,7 +56,7 @@ class CFG:
     temperature = 1.0
 
     # image size
-    size = (int(320/2), int(1280/2))  # (height, width)
+    size = (int(300), int(400))  # (height, width)
 
     # for projection head; used for both image and text encoders
     num_projection_layers = 1
@@ -84,7 +87,7 @@ def get_lr(optimizer):
         return param_group["lr"]
     
 class CLIPDataset(torch.utils.data.Dataset):
-    def __init__(self, image_filenames, captions, tokenizer, transforms):
+    def __init__(self, image_filenames, captions, tokenizer, transforms, img_type):
         """
         image_filenames and cpations must have the same length; so, if there are
         multiple captions for each image, the image_filenames must have repetitive
@@ -97,7 +100,7 @@ class CLIPDataset(torch.utils.data.Dataset):
             list(captions), padding=True, truncation=True, max_length=CFG.max_length
         )
         self.transforms = transforms
-
+        self.img_type = img_type
     def __getitem__(self, idx):
         item = {
             key: torch.tensor(values[idx])
@@ -113,17 +116,22 @@ class CLIPDataset(torch.utils.data.Dataset):
         return item
 
     def get_img(self,idx):
-        for i,path in enumerate(self.image_filenames[idx]):
-            if i == 0:
-                GSV_img = np.array(Image.open(path))
-            else:
-                GSV_img = np.concatenate((GSV_img, np.array(Image.open(path))), axis=1)
+        if self.img_type == 'GSV':
+            for i,path in enumerate(self.image_filenames[idx]):
+                if i == 0:
+                    GSV_img = np.array(Image.open(path))
+                else:
+                    GSV_img = np.concatenate((GSV_img, np.array(Image.open(path))), axis=1)
 
-        # visualization
-        # plt.imshow(GSV_img)
-        # plt.title('GSV from original dataset')
-        # plt.axis('off')
-        return Image.fromarray(GSV_img)
+            # visualization
+            # plt.imshow(GSV_img)
+            # plt.title('GSV from original dataset')
+            # plt.axis('off')
+            return Image.fromarray(GSV_img)
+        elif self.img_type == 'PlacePulse':
+            GSV_path = self.image_filenames[idx]
+            GSV_img = np.array(Image.open(GSV_path))
+            return Image.fromarray(GSV_img)
 
     def __len__(self):
         return len(self.captions)
@@ -282,9 +290,10 @@ def build_loaders(dataframe, tokenizer, mode):
     transforms = get_transforms(mode=mode)
     dataset = CLIPDataset(
         [i['GSV_path'] for i in dataframe], 
-        [i['text_description'] for i in dataframe], 
+        [i['text_description_short'] for i in dataframe], 
         tokenizer=tokenizer,
         transforms=transforms,
+        img_type='PlacePulse'
     )
     dataloader = torch.utils.data.DataLoader(
         dataset,
@@ -399,8 +408,8 @@ def main():
         
         if valid_loss.avg < best_loss:
             best_loss = valid_loss.avg
-            torch.save(model.state_dict(), CFG.save_model_path)
-            print("Saved Best Model!")
+            torch.save(model.state_dict(), os.path.join(CFG.save_model_path, CFG.save_model_name))
+            print("Saved Best Model! to", os.path.join(CFG.save_model_path, CFG.save_model_name))
         
         lr_scheduler.step(valid_loss.avg)
         run["train/valid_loss"].append(valid_loss.avg)
