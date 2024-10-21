@@ -1,5 +1,8 @@
-# python /code/LLM-crime/generate_dataset.py --device-id "cuda:1" --age "baseline" --gender "baseline" --location "baseline" --event "baseline" --img-type "PlacePulse" --start-from 450
-# python /code/LLM-crime/generate_dataset.py --device-id "cuda:3" --age "30" --gender "male" --location "HongKong" --event "murder" --specific-img True 
+# generate baseline data
+# python /code/LLM-crime/generate_dataset.py --device-id "cuda:1" --age "baseline" --gender "baseline" --location "baseline" --event "baseline" --img-type "PlacePulse"
+
+# generate specific data
+# python /code/LLM-crime/generate_dataset.py --device-id "cuda:1" --age "30" --gender "male" --location "HongKong" --event "murder" --specific-img True --img-type "PlacePulse"
 # python /code/LLM-crime/generate_dataset.py --age "30" --gender "female" --location "HongKong" --event "murder"
 
 import numpy as np
@@ -33,7 +36,7 @@ parser.add_argument('--specific-img', default=False, type=bool,
                     help='event of virtual agent for safety perception')
 parser.add_argument('--img-type', default='PlacePulse', type=str,
                     help='GSV or PlacePulse')
-parser.add_argument('--reference-dataset', default="valid_dataset_baseline_199.pkl", type=str,
+parser.add_argument('--reference-dataset', default="/data1/cehou_data/LLM_safety/img_text_data/dataset_baseline_baseline_baseline_baseline_501.pkl", type=str,
                     help='event of virtual agent for safety perception')
 parser.add_argument('--start-from', default=0, type=int,
                     help='event of virtual agent for safety perception')
@@ -140,7 +143,7 @@ if __name__ == '__main__':
         random_indices = range(501)
     else:
         print("Using specific image index")
-        ls = pd.read_pickle(f"/data_nas/cehou/LLM_safety/{args.reference_dataset}")
+        ls = pd.read_pickle(args.reference_dataset)
         random_indices = [i["GSV_idx"] for i in ls]
 
     profile = {
@@ -166,16 +169,16 @@ if __name__ == '__main__':
                 ]
         else:
             question_list = [
-                [f"Please design a {profile['event']}-focused street safety perception system rating scale and list in as much detail as possible the different information that people pay attention to in street perception by looking around the built environment (elements of the urban environment that Street View images can capture). Note that we cannot provide subjective information about residents' personal experiences, so look for key points from the objective environment, please answer this question within 300 words.", None],
-                ["Based on your answers, evaluate the safety perception brought to you by the street scenes in the panoramic street view image one by one. Please answer this question within 300 words.", GSV_img],
-                [f"When evaluating the safety perception of specific criminal behaviors, it is important to consider the sensitivity of different demographic groups to their environment. For {profile['gender']}, which parts of the image would you emphasize? Please answer this question within 300 words.", None],
-                [f"For individuals around the age of {profile['age']}, what factors in the image do you think would impact their sense of safety? Please answer this question within 300 words.", None],
-                [f"When discussing the safety perception in {profile['location']}, what is the characteristics of the built environment, and how these characteristics will influence people's safety perception? Please answer this question within 300 words.", None],
-                [f"In assessing safety perception regarding {profile['event']}, what do you believe are the important part of the image? Please answer this question within 300 words.", None],
-                [f"Please help me to summarize all the information you have provided and provide a comprehensive evaluation of the safety perception in this location, please answer this question from the perspective of age {profile['age']}, gender {profile['gender']}, location {profile['location']}, and perception for the special event ({profile['event']}). Please answer this question within 300 words.", None],
-                # ["Taking into account all the above points, what is your overall view of the safety perception in this location? Please answer this question within 300 words.", None]
-                # ["Now, we try to focus on the females, if you were to evaluate the safety perception of women in their 30s, and rate the results from 1 to 10, with 1 being the least safe and 10 being the safest, what results would you give? Please note that if the information given in the image is insufficient to reflect the characteristics, it will be marked 'not applicable'.", GSV_img]
-            ]
+            [f"Please design a {profile['event']}-focused street safety perception system rating scale and list in as much detail as possible the different information that people pay attention to in street perception by looking around the built environment (elements of the urban environment that Street View images can capture). Note that we cannot provide subjective information about residents' personal experiences, so look for key points from the objective environment, please answer this question within 300 words.", None],
+            ["Based on your answers, evaluate the safety perception brought to you by the street scenes in the panoramic street view image one by one. Please answer this question within 300 words.", GSV_img],
+            [f"When evaluating the safety perception of specific criminal behaviors, it is important to consider the sensitivity of different demographic groups to their environment. For {profile['gender']}, which parts of the image would you emphasize? Please answer this question within 300 words.", None],
+            [f"For individuals around the age of {profile['age']}, what factors in the image do you think would impact their sense of safety? Please answer this question within 300 words.", None],
+            [f"When discussing the safety perception in {profile['location']}, what is the characteristics of the built environment, and how these characteristics will influence people's safety perception? Please answer this question within 300 words.", None],
+            [f"In assessing safety perception regarding {profile['event']}, what do you believe are the important part of the image? Please answer this question within 300 words.", None],
+            [f"Please help me to summarize all the information you have provided and provide a comprehensive evaluation of the safety perception in this location, please answer this question from the perspective of age {profile['age']}, gender {profile['gender']}, location {profile['location']}, and perception for the special event ({profile['event']}). Please answer this question within 300 words.", None]
+            # ["Taking into account all the above points, what is your overall view of the safety perception in this location? Please answer this question within 300 words.", None]
+            # ["Now, we try to focus on the females, if you were to evaluate the safety perception of women in their 30s, and rate the results from 1 to 10, with 1 being the least safe and 10 being the safest, what results would you give? Please note that if the information given in the image is insufficient to reflect the characteristics, it will be marked 'not applicable'.", GSV_img]
+        ]
     
         answer = chat_process(question_list,max_new_tokens=args.max_new_tokens)
         # answer_list.append([idx, answer])
