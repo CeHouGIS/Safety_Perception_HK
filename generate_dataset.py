@@ -1,4 +1,4 @@
-# python /code/LLM-crime/generate_dataset.py --device-id "cuda:1" --age "baseline" --gender "baseline" --location "baseline" --event "baseline" --img-type "PlacePulse"
+# python /code/LLM-crime/generate_dataset.py --device-id "cuda:1" --age "baseline" --gender "baseline" --location "baseline" --event "baseline" --img-type "PlacePulse" --start-from 450
 # python /code/LLM-crime/generate_dataset.py --device-id "cuda:3" --age "30" --gender "male" --location "HongKong" --event "murder" --specific-img True 
 # python /code/LLM-crime/generate_dataset.py --age "30" --gender "female" --location "HongKong" --event "murder"
 
@@ -137,7 +137,7 @@ if __name__ == '__main__':
         
     if args.specific_img == False:  
         # random_indices = GSV_metadata.sample(n=args.sample_size).index.tolist()
-        random_indices = range(500)
+        random_indices = range(501)
     else:
         print("Using specific image index")
         ls = pd.read_pickle(f"/data_nas/cehou/LLM_safety/{args.reference_dataset}")
@@ -187,4 +187,6 @@ if __name__ == '__main__':
         #     with open(f'/data_nas/cehou/LLM_safety/dataset_{args.age}_{args.gender}_{args.location}_{args.event}_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}_{i}.pkl', 'wb') as f:
         #         pickle.dump(dataset_list, f)
         i += 1
+    with open(f'/data1/cehou_data/LLM_safety/img_text_data/dataset_{args.age}_{args.gender}_{args.location}_{args.event}_{args.img_type}_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}_{i}.pkl', 'wb') as f:
+        pickle.dump(dataset_list, f)
         
