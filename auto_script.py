@@ -53,9 +53,12 @@ cfg_paras_safety = {
         'CLIP_model_path': "/data1/cehou_data/LLM_safety/LLM_model/clip_model/model_baseline_baseline_baseline_baseline.pt",
         'dataset_path': f"/data1/cehou_data/LLM_safety/img_text_data/dataset_baseline_baseline_baseline_baseline_501.pkl",
         'save_paths': f"/data1/cehou_data/LLM_safety/middle_variables/test",
+        'model_save_path' : f"/data1/cehou_data/LLM_safety/safety_perception_model/",
         'placepulse_datapath': "/data_nas/cehou/LLM_safety/PlacePulse2.0/image_perception.csv",
+        'eval_path': "/data1/cehou_data/LLM_safety/eval/",
         'train_type': 'classification',
-        'device': torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        'device': torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
+        'early_stopping_threshold':20
     }
 safety_main(cfg_paras_safety)
 
@@ -64,3 +67,6 @@ safety_main(cfg_paras_safety)
 print("==============================================")
 print("[3/3] Evaluate the models...")
 print("==============================================")
+
+def evaluate_models():
+    pass
