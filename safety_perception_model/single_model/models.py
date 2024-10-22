@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import timm
 
 # class TransformerRegressionModel(nn.Module):
 #     def __init__(self, input_dim, model_dim, num_heads, num_layers, output_dim):
@@ -48,3 +49,13 @@ class TransformerRegressionModel(nn.Module):
         # print(x.shape)
         # print("==============================")
         return x
+    
+    
+class ViTClassifier(nn.Module):
+    def __init__(self, num_classes=20):
+        super(ViTClassifier, self).__init__()
+        self.model = timm.create_model('vit_base_patch16_224', pretrained=True)
+        self.model.head = nn.Linear(self.model.head.in_features, num_classes)
+
+    def forward(self, x):
+        return self.model(x)

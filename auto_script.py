@@ -1,8 +1,10 @@
 import os
 import neptune
 import sys
-sys.path.append('/code/LLM-crime/safety_perception_model/single_model')
+import torch
 from custom_clip_train import clip_train
+sys.path.append('/code/LLM-crime/safety_perception_model/single_model')
+from safety_train_withCLIP import safety_main
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -48,7 +50,17 @@ print("[2/3] Train deep learning model for safety perception evaluation...")
 print("==============================================")
 
 cfg_paras_safety = {
-    
-}
+        'CLIP_model_path': "/data1/cehou_data/LLM_safety/LLM_model/clip_model/model_baseline_baseline_baseline_baseline.pt",
+        'dataset_path': f"/data1/cehou_data/LLM_safety/img_text_data/dataset_baseline_baseline_baseline_baseline_501.pkl",
+        'save_paths': f"/data1/cehou_data/LLM_safety/middle_variables/test",
+        'placepulse_datapath': "/data_nas/cehou/LLM_safety/PlacePulse2.0/image_perception.csv",
+        'train_type': 'classification',
+        'device': torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    }
+safety_main(cfg_paras_safety)
 
 # 评估结果，存入csv文件
+# overall performance, confusion matrix, ROC curve, precision-recall curve
+print("==============================================")
+print("[3/3] Evaluate the models...")
+print("==============================================")

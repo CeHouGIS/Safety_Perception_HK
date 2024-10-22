@@ -40,7 +40,7 @@ def get_transforms(resize_size):
     )    
 
 class SafetyPerceptionCLIPDataset(Dataset):
-    def __init__(self, data, img_feature):
+    def __init__(self, data, img_feature, train_type):
         """
         Args:
             data (list or np.array): List or array of data samples.
@@ -50,14 +50,17 @@ class SafetyPerceptionCLIPDataset(Dataset):
 
         self.data = data
         self.image_feature = img_feature
+        self.train_type = train_type
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
         image_feature_line = self.image_feature[idx]
-        label = self.data[idx]["labels"]
-
+        if self.train_type == 'classification':
+            label = self.data[idx]["labels"][0] * 100 // 5
+        else:
+            label = self.data[idx]["labels"]
         return image_feature_line, label
       
 
