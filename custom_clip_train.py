@@ -408,7 +408,6 @@ def make_prediction(model, test_loader, cfg_paras):
 
 # define train function, similar to main()
 def clip_train(cfg_paras):
-    
     # CFG = Configurations(cfg_paras)
     df = pd.read_pickle(cfg_paras['dataset_path'])
     
@@ -480,7 +479,7 @@ def main(cfg_paras):
     train_loader = build_loaders(df[:train_num], tokenizer, mode="train", cfg_paras=cfg_paras)
     valid_loader = build_loaders(df[train_num:], tokenizer, mode="valid", cfg_paras=cfg_paras)
 
-    print("use device: ", cfg_paras['device'])
+    print("use device: ", cfg_paras['device_step1'])
     model = CLIPModel(cfg_paras).to(cfg_paras['device'])
     params = [
         {"params": model.image_encoder.parameters(), "lr": cfg_paras['image_encoder_lr']},

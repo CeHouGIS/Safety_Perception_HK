@@ -40,8 +40,8 @@ def get_img_feature(paras):
     if not os.path.exists(save_paths):
         os.makedirs(save_paths)
     text_tokenizer = "distilbert-base-uncased"
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
+    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {paras['device']}")
 
     img_encoder_paras = torch.load(CLIP_model_path)
     img_encoder = CLIPModel(paras)
@@ -49,12 +49,10 @@ def get_img_feature(paras):
     baseline_data = pd.read_pickle(dataset_path)
     tokenizer = DistilBertTokenizer.from_pretrained(text_tokenizer)
 
-    train_num = int(len(baseline_data) * 0.7)
-    train_loader = build_loaders(baseline_data[:train_num], tokenizer, mode="train", cfg_paras=paras)
-    valid_loader = build_loaders(baseline_data[train_num:], tokenizer, mode="valid", cfg_paras=paras)
+    data_loader = build_loaders(baseline_data, tokenizer, mode="valid", cfg_paras=paras)
 
-    img_encoder.to(device)
-    img_feature, text_feature = make_prediction(img_encoder, train_loader, cfg_paras=paras) # (datasize, 256)
+    img_encoder.to(paras['device'])
+    img_feature, text_feature = make_prediction(img_encoder, data_loader, cfg_paras=paras) # (datasize, 256)
     img_feature = np.array(img_feature)
     text_feature = np.array(text_feature)
 
@@ -132,8 +130,8 @@ def safety_main(paras):
     valid_len = len(img_feature) - train_len
     train_dataset = SafetyPerceptionCLIPDataset(data[:train_len], img_feature[:train_len], paras)
     valid_dataset = SafetyPerceptionCLIPDataset(data[train_len:valid_len], img_feature[train_len:valid_len], paras)
-    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-    valid_loader = DataLoader(valid_dataset, batch_size=32, shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
+    valid_loader = DataLoader(valid_dataset, batch_size=16, shuffle=False)
 
     # 训练模型
     train_model(train_loader, valid_loader, paras)

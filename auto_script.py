@@ -20,7 +20,7 @@ cfg_paras = {
     'dataset_path':"/data1/cehou_data/LLM_safety/img_text_data/dataset_baseline_baseline_baseline_baseline_501.pkl",
     'save_model_path':"/data1/cehou_data/LLM_safety/LLM_model/clip_model",
     'save_model_name':"model_baseline_test.pt",
-    'device':torch.device("cuda:1" if torch.cuda.is_available() else "cpu"),
+    'device':torch.device("cuda:2" if torch.cuda.is_available() else "cpu"),
     'batch_size':20,
     'num_workers':4,
     'head_lr':1e-3,
@@ -56,7 +56,6 @@ cfg_paras = {
     'placepulse_datapath': "/data_nas/cehou/LLM_safety/PlacePulse2.0/image_perception.csv",
     'eval_path': "/data1/cehou_data/LLM_safety/eval/",
     'train_type': 'classification',
-    'device': torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
     }
 
 # cfg_paras_clip = {
@@ -87,7 +86,8 @@ cfg_paras = {
 # 'early_stopping_threshold':20
 # }
 
-clip_train(cfg_paras)
+# clip_train(cfg_paras)
+# torch.cuda.empty_cache()
 
 # 运行safety_train.py
 print("==============================================")
@@ -96,6 +96,7 @@ print("==============================================")
 
 
 safety_main(cfg_paras)
+torch.cuda.empty_cache()
 
 # 评估结果，存入csv文件
 # overall performance, confusion matrix, ROC curve, precision-recall curve
