@@ -422,7 +422,7 @@ def clip_train(cfg_paras):
     valid_loader = build_loaders(df[train_num:], tokenizer, mode="valid")
 
     print("use device: ", CFG.device)
-    model = CLIPModel().to(CFG.device)
+    model = CLIPModel(cfg_paras).to(CFG.device)
     params = [
         {"params": model.image_encoder.parameters(), "lr": CFG.image_encoder_lr},
         {"params": model.text_encoder.parameters(), "lr": CFG.text_encoder_lr},
@@ -448,7 +448,7 @@ def clip_train(cfg_paras):
     for epoch in range(CFG.epochs):
         print(f"Epoch: {epoch + 1}")
         model.train()
-        train_loss = train_epoch(model, train_loader, optimizer, lr_scheduler, step)
+        train_loss = train_epoch(model, train_loader, optimizer, lr_scheduler, step, cfg_paras)
         run["train/train_loss"].append(train_loss.avg)
         model.eval()
         with torch.no_grad():
@@ -498,41 +498,41 @@ def main():
     'early_stopping_threshold':20
     }
     
-    CFG = Configurations(cfg_paras)
-    dataset_path = CFG.dataset_path
+    # CFG = Configurations(cfg_paras)
+    dataset_path = cfg_paras['dataset_path']
     df = pd.read_pickle(dataset_path)
     
     # train_df, valid_df = make_train_valid_dfs()
-    tokenizer = DistilBertTokenizer.from_pretrained(CFG.text_tokenizer)
+    tokenizer = DistilBertTokenizer.from_pretrained(cfg_paras['text_tokenizer'])
     
     train_num = int(len(df) * 0.7)
-    train_loader = build_loaders(df[:train_num], tokenizer, mode="train")
-    valid_loader = build_loaders(df[train_num:], tokenizer, mode="valid")
+    train_loader = build_loaders(df[:train_num], tokenizer, mode="train", cfg_paras=cfg_paras)
+    valid_loader = build_loaders(df[train_num:], tokenizer, mode="valid", cfg_paras=cfg_paras)
 
-    print("use device: ", CFG.device)
-    model = CLIPModel().to(CFG.device)
+    print("use device: ", cfg_paras['device'])
+    model = CLIPModel().to(cfg_paras['device'])
     params = [
-        {"params": model.image_encoder.parameters(), "lr": CFG.image_encoder_lr},
-        {"params": model.text_encoder.parameters(), "lr": CFG.text_encoder_lr},
+        {"params": model.image_encoder.parameters(), "lr": cfg_paras['image_encoder_lr']},
+        {"params": model.text_encoder.parameters(), "lr": cfg_paras['text_encoder_lr']},
         {"params": itertools.chain(
             model.image_projection.parameters(), model.text_projection.parameters()
-        ), "lr": CFG.head_lr, "weight_decay": CFG.weight_decay}
+        ), "lr": cfg_paras['head_lr'], "weight_decay": cfg_paras['weight_decay']}
     ]
     
     run = neptune.init_run(
         project="ce-hou/LLM-CRIME",
         api_token="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJmYzFmZTZkYy1iZmY3LTQ1NzUtYTRlNi1iYTgzNjRmNGQyOGUifQ==",
     )  # your credentials
-    run["parameters"] = vars(CFG)
+    run["parameters"] = cfg_paras
         
     optimizer = torch.optim.AdamW(params, weight_decay=0.)
     lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode="min", patience=CFG.patience, factor=CFG.factor
+        optimizer, mode="min", patience=cfg_paras['patience'], factor=cfg_paras['factor']
     )
     step = "epoch"
 
     best_loss = float('inf')
-    for epoch in range(CFG.epochs):
+    for epoch in range(cfg_paras['epochs']):
         print(f"Epoch: {epoch + 1}")
         model.train()
         train_loss = train_epoch(model, train_loader, optimizer, lr_scheduler, step)
@@ -543,8 +543,8 @@ def main():
         
         if valid_loss.avg < best_loss:
             best_loss = valid_loss.avg
-            torch.save(model.state_dict(), os.path.join(CFG.save_model_path, CFG.save_model_name))
-            print("Saved Best Model! to", os.path.join(CFG.save_model_path, CFG.save_model_name))
+            torch.save(model.state_dict(), os.path.join(cfg_paras['save_model_path'], cfg_paras['save_model_name']))
+            print("Saved Best Model! to", os.path.join(cfg_paras['save_model_path'], cfg_paras['save_model_name']))
         
         lr_scheduler.step(valid_loss.avg)
         run["train/valid_loss"].append(valid_loss.avg)
