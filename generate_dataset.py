@@ -1,5 +1,5 @@
 # generate baseline data
-# python /code/LLM-crime/generate_dataset.py --device-id "cuda:1" --age "baseline" --gender "baseline" --location "baseline" --event "baseline" --img-type "PlacePulse"
+# python /code/LLM-crime/generate_dataset.py --device-id "cuda:2" --age "baseline" --gender "baseline" --location "baseline" --event "baseline" --img-type "PlacePulse" --start-from 501
 
 # generate specific data
 # python /code/LLM-crime/generate_dataset.py --device-id "cuda:0" --age "30" --gender "male" --location "HongKong" --event "murder" --specific-img True --img-type "PlacePulse" --start-from 351
@@ -44,6 +44,8 @@ parser.add_argument('--start-from', default=0, type=int,
 parser.add_argument('--sample-size', default=200, type=int,
                     help='event of virtual agent for safety perception')
 parser.add_argument('--max-new-tokens', default=512, type=int,
+                    help='event of virtual agent for safety perception')
+parser.add_argument('--data-num', default=2500, type=int,
                     help='event of virtual agent for safety perception')
 
 def count_characters(s):
@@ -141,7 +143,7 @@ if __name__ == '__main__':
         
     if args.specific_img == False:  
         # random_indices = GSV_metadata.sample(n=args.sample_size).index.tolist()
-        random_indices = range(501)
+        random_indices = range(args.data_num)
     else:
         print("Using specific image index")
         ls = pd.read_pickle(args.reference_dataset)

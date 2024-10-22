@@ -100,7 +100,6 @@ class Configurations:
         self.size = cfg_paras['size']
 
         # for projection head; used for both image and text encoders
-        self.num_projection_layers = cfg_paras['num_projection_layers']
         self.projection_dim = cfg_paras['projection_dim']
         self.dropout = cfg_paras['dropout']
         
@@ -129,7 +128,7 @@ def get_lr(optimizer):
         return param_group["lr"]
     
 class CLIPDataset(torch.utils.data.Dataset):
-    def __init__(self, image_filenames, captions, tokenizer, transforms, img_type, cfg_paras):
+    def __init__(self, image_filenames, captions, tokenizer, transforms, cfg_paras):
         """
         image_filenames and cpations must have the same length; so, if there are
         multiple captions for each image, the image_filenames must have repetitive
@@ -142,7 +141,7 @@ class CLIPDataset(torch.utils.data.Dataset):
             list(captions), padding=True, truncation=True, max_length=cfg_paras['max_length']
         )
         self.transforms = transforms
-        self.img_type = img_type
+        self.img_type = cfg_paras['img_type']
     def __getitem__(self, idx):
         item = {
             key: torch.tensor(values[idx])
@@ -280,8 +279,8 @@ class CLIPModel(nn.Module):
         cfg_paras
     ):
         super().__init__()
-        self.image_encoder = ImageEncoder()
-        self.text_encoder = TextEncoder()
+        self.image_encoder = ImageEncoder(cfg_paras)
+        self.text_encoder = TextEncoder(cfg_paras)
         self.image_projection = ProjectionHead(cfg_paras, data_type='image')
         self.text_projection = ProjectionHead(cfg_paras, data_type='text')
         self.temperature = cfg_paras['temperature']
@@ -333,13 +332,13 @@ def make_train_valid_dfs(cfg_paras):
 
 
 def build_loaders(dataframe, tokenizer, mode, cfg_paras):
-    transforms = get_transforms(mode=mode)
+    transforms = get_transforms(mode=mode, cfg_paras=cfg_paras)
     dataset = CLIPDataset(
         [i['GSV_path'] for i in dataframe], 
         [i['text_description_short'] for i in dataframe], 
         tokenizer=tokenizer,
         transforms=transforms,
-        img_type='PlacePulse'
+        cfg_paras=cfg_paras
     )
     dataloader = torch.utils.data.DataLoader(
         dataset,
@@ -410,93 +409,64 @@ def make_prediction(model, test_loader, cfg_paras):
 # define train function, similar to main()
 def clip_train(cfg_paras):
     
-    CFG = Configurations(cfg_paras)
-    dataset_path = CFG.dataset_path
-    df = pd.read_pickle(dataset_path)
+    # CFG = Configurations(cfg_paras)
+    df = pd.read_pickle(cfg_paras['dataset_path'])
     
     # train_df, valid_df = make_train_valid_dfs()
-    tokenizer = DistilBertTokenizer.from_pretrained(CFG.text_tokenizer)
+    tokenizer = DistilBertTokenizer.from_pretrained(cfg_paras['text_tokenizer'])
     
     train_num = int(len(df) * 0.7)
-    train_loader = build_loaders(df[:train_num], tokenizer, mode="train")
-    valid_loader = build_loaders(df[train_num:], tokenizer, mode="valid")
+    train_loader = build_loaders(df[:train_num], tokenizer, mode="train", cfg_paras=cfg_paras)
+    valid_loader = build_loaders(df[train_num:], tokenizer, mode="valid", cfg_paras=cfg_paras)
 
-    print("use device: ", CFG.device)
-    model = CLIPModel(cfg_paras).to(CFG.device)
+    print("use device: ", cfg_paras['device'])
+    model = CLIPModel(cfg_paras).to(cfg_paras['device'])
     params = [
-        {"params": model.image_encoder.parameters(), "lr": CFG.image_encoder_lr},
-        {"params": model.text_encoder.parameters(), "lr": CFG.text_encoder_lr},
+        {"params": model.image_encoder.parameters(), "lr": cfg_paras['image_encoder_lr']},
+        {"params": model.text_encoder.parameters(), "lr": cfg_paras['text_encoder_lr']},
         {"params": itertools.chain(
             model.image_projection.parameters(), model.text_projection.parameters()
-        ), "lr": CFG.head_lr, "weight_decay": CFG.weight_decay}
+        ), "lr": cfg_paras['head_lr'], "weight_decay": cfg_paras['weight_decay']}
     ]
     
     run = neptune.init_run(
         project="ce-hou/LLM-CRIME",
         api_token="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJmYzFmZTZkYy1iZmY3LTQ1NzUtYTRlNi1iYTgzNjRmNGQyOGUifQ==",
     )  # your credentials
-    run["parameters"] = vars(CFG)
+    run["parameters"] = cfg_paras
         
     optimizer = torch.optim.AdamW(params, weight_decay=0.)
     lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode="min", patience=CFG.patience, factor=CFG.factor
+        optimizer, mode="min", patience=cfg_paras['patience'], factor=cfg_paras['factor']
     )
     step = "epoch"
 
     best_loss = float('inf')
     count_after_best = 0
-    for epoch in range(CFG.epochs):
+    for epoch in range(cfg_paras['epochs']):
         print(f"Epoch: {epoch + 1}")
         model.train()
         train_loss = train_epoch(model, train_loader, optimizer, lr_scheduler, step, cfg_paras)
         run["train/train_loss"].append(train_loss.avg)
         model.eval()
         with torch.no_grad():
-            valid_loss = valid_epoch(model, valid_loader)
+            valid_loss = valid_epoch(model, valid_loader, cfg_paras)
         
         if valid_loss.avg < best_loss:
             best_loss = valid_loss.avg
             count_after_best = 0
-            torch.save(model.state_dict(), os.path.join(CFG.save_model_path, CFG.save_model_name))
-            print("Saved Best Model! to", os.path.join(CFG.save_model_path, CFG.save_model_name))
+            torch.save(model.state_dict(), os.path.join(cfg_paras['save_model_path'], cfg_paras['save_model_name']))
+            print("Saved Best Model! to", os.path.join(cfg_paras['save_model_path'], cfg_paras['save_model_name']))
         
         lr_scheduler.step(valid_loss.avg)
         run["train/valid_loss"].append(valid_loss.avg)
         
         count_after_best += 1
-        if count_after_best > 20:
+        if count_after_best > cfg_paras['early_stopping_threshold']:
             print("Early Stopping!")
 
 
-def main():
-    
-    cfg_paras = {
-    'debug':False,
-    'save_model_path':"/data1/cehou_data/LLM_safety/LLM_model/clip_model",
-    'batch_size':20,
-    'head_lr':1e-3,
-    'image_encoder_lr':1e-4,
-    'text_encoder_lr':1e-5,
-    'weight_decay':1e-3,
-    'patience':1,
-    'factor':0.8,
-    'epochs':400,
-    'image_embedding':2048,
-    'text_embedding':768,
-    'max_length':512,
-    'size':(300, 400),
-    
-    # models for image and text
-    'model_name':'resnet50',
-    'text_encoder_model':"distilbert-base-uncased",
-    'text_tokenizer': "distilbert-base-uncased",
-    
-    # deep learning model parameters
-    'temperature':0.07,
-    'projection_dim':256,
-    'dropout':0.1,
-    'early_stopping_threshold':20
-    }
+def main(cfg_paras):
     
     # CFG = Configurations(cfg_paras)
     dataset_path = cfg_paras['dataset_path']
@@ -510,7 +480,7 @@ def main():
     valid_loader = build_loaders(df[train_num:], tokenizer, mode="valid", cfg_paras=cfg_paras)
 
     print("use device: ", cfg_paras['device'])
-    model = CLIPModel().to(cfg_paras['device'])
+    model = CLIPModel(cfg_paras).to(cfg_paras['device'])
     params = [
         {"params": model.image_encoder.parameters(), "lr": cfg_paras['image_encoder_lr']},
         {"params": model.text_encoder.parameters(), "lr": cfg_paras['text_encoder_lr']},
@@ -535,11 +505,11 @@ def main():
     for epoch in range(cfg_paras['epochs']):
         print(f"Epoch: {epoch + 1}")
         model.train()
-        train_loss = train_epoch(model, train_loader, optimizer, lr_scheduler, step)
+        train_loss = train_epoch(model, train_loader, optimizer, lr_scheduler, step, cfg_paras)
         run["train/train_loss"].append(train_loss.avg)
         model.eval()
         with torch.no_grad():
-            valid_loss = valid_epoch(model, valid_loader)
+            valid_loss = valid_epoch(model, valid_loader, cfg_paras)
         
         if valid_loss.avg < best_loss:
             best_loss = valid_loss.avg
@@ -549,8 +519,8 @@ def main():
         lr_scheduler.step(valid_loss.avg)
         run["train/valid_loss"].append(valid_loss.avg)
         
-if __name__ == '__main__':
+# if __name__ == '__main__':
     # dataset_path = "/data_nas/cehou/LLM_safety/dataset_30_female_HongKong_murder_746.pkl"
     # dataset_config = dataset_path.split("/")[-1].split("_")
     # save_model_path = f"/data_nas/cehou/LLM_safety/model/model_{dataset_config[1]}_{dataset_config[2]}_{dataset_config[3]}_{dataset_config[4]}.pt"
-    main()
+    # main(cfg_paras)
