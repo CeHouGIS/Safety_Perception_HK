@@ -50,7 +50,7 @@ safety_model = TransformerRegressionModel(input_dim, model_dim, num_heads, num_l
 safety_model.load_state_dict(safety_model_paras, strict=False)
 # print(safety_model)
 
-img_encoder = CLIPModel()
+img_encoder = CLIPModel(cfg_paras)
 img_encoder.load_state_dict(img_encoder_paras)
 text_tokenizer = "distilbert-base-uncased"
 train_num = int(len(baseline_data) * 0.7)
