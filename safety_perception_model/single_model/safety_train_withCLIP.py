@@ -36,7 +36,7 @@ run = neptune.init_run(
 def get_img_feature(paras):
     CLIP_model_path = paras['CLIP_model_path']
     dataset_path = paras['dataset_path']
-    save_paths = paras['save_paths']
+    save_paths = paras['variables_save_paths']
     if not os.path.exists(save_paths):
         os.makedirs(save_paths)
     text_tokenizer = "distilbert-base-uncased"
@@ -44,17 +44,17 @@ def get_img_feature(paras):
     print(f"Using device: {device}")
 
     img_encoder_paras = torch.load(CLIP_model_path)
-    img_encoder = CLIPModel()
+    img_encoder = CLIPModel(paras)
     img_encoder.load_state_dict(img_encoder_paras)
     baseline_data = pd.read_pickle(dataset_path)
     tokenizer = DistilBertTokenizer.from_pretrained(text_tokenizer)
 
     train_num = int(len(baseline_data) * 0.7)
-    train_loader = build_loaders(baseline_data[:train_num], tokenizer, mode="train")
-    valid_loader = build_loaders(baseline_data[train_num:], tokenizer, mode="valid")
+    train_loader = build_loaders(baseline_data[:train_num], tokenizer, mode="train", cfg_paras=paras)
+    valid_loader = build_loaders(baseline_data[train_num:], tokenizer, mode="valid", cfg_paras=paras)
 
     img_encoder.to(device)
-    img_feature, text_feature = make_prediction(img_encoder, train_loader) # (datasize, 256)
+    img_feature, text_feature = make_prediction(img_encoder, train_loader, cfg_paras=paras) # (datasize, 256)
     img_feature = np.array(img_feature)
     text_feature = np.array(text_feature)
 
@@ -128,10 +128,10 @@ def safety_main(paras):
     # 数据加载器
     img_feature = get_img_feature(paras)
     data = pd.read_csv(paras['placepulse_datapath'])
-    train_len = 0.7*len(img_feature)
-    valid_len = len(img_feature) - 0.7*len(img_feature)
-    train_dataset = SafetyPerceptionCLIPDataset(data[:train_len], img_feature[:train_len])
-    valid_dataset = SafetyPerceptionCLIPDataset(data[train_len:valid_len], img_feature[train_len:valid_len])
+    train_len = int(0.7*len(img_feature))
+    valid_len = len(img_feature) - train_len
+    train_dataset = SafetyPerceptionCLIPDataset(data[:train_len], img_feature[:train_len], paras)
+    valid_dataset = SafetyPerceptionCLIPDataset(data[train_len:valid_len], img_feature[train_len:valid_len], paras)
     train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
     valid_loader = DataLoader(valid_dataset, batch_size=32, shuffle=False)
 

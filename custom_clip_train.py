@@ -464,6 +464,7 @@ def clip_train(cfg_paras):
         count_after_best += 1
         if count_after_best > cfg_paras['early_stopping_threshold']:
             print("Early Stopping!")
+            break
 
 
 def main(cfg_paras):
