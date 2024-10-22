@@ -40,7 +40,7 @@ def get_transforms(resize_size):
     )    
 
 class SafetyPerceptionCLIPDataset(Dataset):
-    def __init__(self, data, img_feature, paras):
+    def __init__(self, data, img_feature, SVI_namelist, paras):
         """
         Args:
             data (list or np.array): List or array of data samples.
@@ -50,17 +50,22 @@ class SafetyPerceptionCLIPDataset(Dataset):
 
         self.data = data
         self.image_feature = img_feature
+        self.SVI_namelist = SVI_namelist
+        namelist = [SVI_namelist[i]['GSV_name'] for i in range(len(SVI_namelist))]
+        self.data = data[(data['Category'] == 'safety') & (data['Image_ID'].isin(namelist))].sort_values(by='Image_ID').reset_index(drop=True)
         self.train_type = paras['train_type']
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
-        image_feature_line = self.image_feature[idx]
+        print(self.image_feature.shape)
+        image_feature_line = self.image_feature[idx,:]
+        
         if self.train_type == 'classification':
-            label = self.data[idx]["labels"][0] * 100 // 5
+            label = self.data.loc[idx,"Q_Value"] * 100 // 5
         elif self.train_type == 'regression':
-            label = self.data[idx]["labels"]
+            label = self.data.loc[idx,"Q_Value"]
         return image_feature_line, label
       
 

@@ -86,9 +86,9 @@ def train_model(train_loader, valid_loader, paras):
     for epoch in tqdm(range(num_epochs)):
         model.train()
         train_running_loss = 0.0
-        for batch in train_loader:
-            inputs = batch['input'].to(paras['device'])
-            labels = batch['label'].to(paras['device'])
+        for inputs,labels in train_loader:
+            inputs = inputs.to(paras['device'])
+            labels = labels.to(paras['device'])
 
             optimizer.zero_grad()
             outputs = model(inputs)
@@ -100,9 +100,9 @@ def train_model(train_loader, valid_loader, paras):
         model.eval()
         val_running_loss = 0.0
         with torch.no_grad():
-            for batch in valid_loader:
-                inputs = batch['input'].to(paras['device'])
-                labels = batch['label'].to(paras['device'])
+            for nputs,labels in valid_loader:
+                inputs = inputs.to(paras['device'])
+                labels = labels.to(paras['device'])
                 outputs = model(inputs)
                 loss = criterion(outputs, labels)
                 val_running_loss += loss.item()
@@ -126,10 +126,11 @@ def safety_main(paras):
     # 数据加载器
     img_feature = get_img_feature(paras)
     data = pd.read_csv(paras['placepulse_datapath'])
+    SVI_namelist = pd.read_pickle(paras['dataset_path'])
     train_len = int(0.7*len(img_feature))
     valid_len = len(img_feature) - train_len
-    train_dataset = SafetyPerceptionCLIPDataset(data[:train_len], img_feature[:train_len], paras)
-    valid_dataset = SafetyPerceptionCLIPDataset(data[train_len:valid_len], img_feature[train_len:valid_len], paras)
+    train_dataset = SafetyPerceptionCLIPDataset(data[:train_len], img_feature[:train_len], SVI_namelist, paras)
+    valid_dataset = SafetyPerceptionCLIPDataset(data[train_len:valid_len], img_feature[train_len:valid_len], SVI_namelist, paras)
     train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
     valid_loader = DataLoader(valid_dataset, batch_size=16, shuffle=False)
 

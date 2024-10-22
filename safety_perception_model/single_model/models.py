@@ -52,10 +52,16 @@ class TransformerRegressionModel(nn.Module):
     
     
 class ViTClassifier(nn.Module):
-    def __init__(self, num_classes=20):
+    def __init__(self, num_classes=20, input_dim=256):
         super(ViTClassifier, self).__init__()
-        self.model = timm.create_model('vit_base_patch16_224', pretrained=True)
-        self.model.head = nn.Linear(self.model.head.in_features, num_classes)
+        self.fc1 = nn.Linear(input_dim, 512)
+        self.fc2 = nn.Linear(512, num_classes)
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(0.1)
 
     def forward(self, x):
-        return self.model(x)
+        x = x.view(x.size(0), -1)  # Flatten the input
+        x = self.relu(self.fc1(x))
+        x = self.dropout(x)
+        x = self.fc2(x)
+        return x
