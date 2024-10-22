@@ -24,8 +24,7 @@ warnings.filterwarnings("ignore")
 parser = argparse.ArgumentParser(description='GSV auto download script')
 parser.add_argument('--save-model-path', default=f"/data1/cehou_data/LLM_safety/LLM_model/clip_model", type=str,
                     help='batch size')
-parser.add_argument('--batch-size', default=20, type=int,
-                    help='batch size')
+
 parser.add_argument('--batch-size', default=20, type=int,
                     help='batch size')
 parser.add_argument('--head-lr', default=1e-3, type=float,
@@ -55,49 +54,54 @@ parser.add_argument('--projection-dim', default=256, type=int,
 parser.add_argument('--dropout', default=0.1, type=float,
                     help='batch size')
 
+
+
 ## Parameters
-class CFG:
-    args = parser.parse_args()
-    debug = False
-    dataset_path = "/data1/cehou_data/LLM_safety/img_text_data/dataset_baseline_baseline_baseline_baseline_501.pkl"
-    # dataset_path = "/data_nas/cehou/LLM_safety/dataset_baseline_746.pkl"
-    # image_path = "../input/flickr-image-dataset/flickr30k_images/flickr30k_images"
-    dataset_config = dataset_path.split("/")[-1].split("_")
-    # save_model_path = f"/data_nas/cehou/LLM_safety/model/model_baseline.pt"
-    save_model_path = args.save_model_path
-    save_model_name = f"model_{dataset_config[1]}_{dataset_config[2]}_{dataset_config[3]}_{dataset_config[4]}.pt"
-    if not os.path.exists(save_model_path):
-        os.makedirs(save_model_path)
-    captions_path = "."
-    batch_size = args.batch_size
-    num_workers = 4
-    head_lr = args.head_lr
-    image_encoder_lr = args.image_encoder_lr
-    text_encoder_lr = args.text_encoder_lr
-    weight_decay = args.weight_decay
-    patience = args.patience
-    factor = args.factor
-    epochs = args.epochs
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+class Configurations:
+    def __init__(self,cfg_paras):
+        # args = parser.parse_args()
+        # print(args)
+        self.debug = cfg_paras['debug'] # False
+        self.dataset_path = "/data1/cehou_data/LLM_safety/img_text_data/dataset_baseline_baseline_baseline_baseline_501.pkl"
+        # dataset_path = "/data_nas/cehou/LLM_safety/dataset_baseline_746.pkl"
+        # image_path = "../input/flickr-image-dataset/flickr30k_images/flickr30k_images"
+        self.dataset_config = self.dataset_path.split("/")[-1].split("_")
+        # save_model_path = f"/data_nas/cehou/LLM_safety/model/model_baseline.pt"
+        self.save_model_path = cfg_paras['save_model_path']
+        self.save_model_name = f"model_{self.dataset_config[1]}_{self.dataset_config[2]}_{self.dataset_config[3]}_{self.dataset_config[4]}.pt"
+        if not os.path.exists(self.save_model_path):
+            os.makedirs(self.save_model_path)
+        self.captions_path = "."
+        self.batch_size = cfg_paras['batch_size']
+        self.num_workers = 4
+        self.head_lr = cfg_paras['head_lr']
+        self.image_encoder_lr = cfg_paras['image_encoder_lr']
+        self.text_encoder_lr = cfg_paras['text_encoder_lr']
+        self.weight_decay = cfg_paras['weight_decay']
+        self.patience = cfg_paras['patience']
+        self.factor = cfg_paras['factor']
+        self.epochs = cfg_paras['epochs']
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    model_name = 'resnet50'
-    image_embedding = args.image_embedding
-    text_encoder_model = "distilbert-base-uncased"
-    text_embedding = args.text_embedding
-    text_tokenizer = "distilbert-base-uncased"
-    max_length = args.max_length
+        self.model_name = cfg_paras['model_name']
+        self.image_embedding = cfg_paras['image_embedding']
+        self.text_encoder_model = cfg_paras['text_encoder_model']
+        self.text_embedding = cfg_paras['text_embedding']
+        self.text_tokenizer = cfg_paras['text_tokenizer']
+        self.max_length = cfg_paras['max_length']
 
-    pretrained = True # for both image encoder and text encoder
-    trainable = True # for both image encoder and text encoder
-    temperature = args.temperature
+        self.pretrained = True # for both image encoder and text encoder
+        self.trainable = True # for both image encoder and text encoder
+        self.temperature = cfg_paras['max_length']
 
-    # image size
-    size = (int(300), int(400))  # (height, width)
+        # image size
+        # self.size = (int(300), int(400))  # (height, width)
+        self.size = cfg_paras['size']
 
-    # for projection head; used for both image and text encoders
-    num_projection_layers = 1
-    projection_dim = 256 
-    dropout = 0.1
+        # for projection head; used for both image and text encoders
+        self.num_projection_layers = cfg_paras['num_projection_layers']
+        self.projection_dim = cfg_paras['projection_dim']
+        self.dropout = cfg_paras['dropout']
     
     
 ## Utils
@@ -133,7 +137,7 @@ class CLIPDataset(torch.utils.data.Dataset):
         self.image_filenames = image_filenames
         self.captions = list(captions)
         self.encoded_captions = tokenizer(
-            list(captions), padding=True, truncation=True, max_length=CFG.max_length
+            list(captions), padding=True, truncation=True, max_length=Configurations.max_length
         )
         self.transforms = transforms
         self.img_type = img_type
@@ -173,7 +177,7 @@ class CLIPDataset(torch.utils.data.Dataset):
         return len(self.captions)
 
 # call it
-# tokenizer = DistilBertTokenizer.from_pretrained(CFG.text_tokenizer)
+# tokenizer = DistilBertTokenizer.from_pretrained(Configurations.text_tokenizer)
 # clip_dataset = CLIPDataset(
 #     [i['GSV_path'] for i in dataset], 
 #     [i['text_description'] for i in dataset], 
@@ -185,7 +189,7 @@ def get_transforms(mode="train"):
     if mode == "train":
         return transforms.Compose(
             [
-                transforms.Resize((CFG.size[0], CFG.size[1])),
+                transforms.Resize((Configurations.size[0], Configurations.size[1])),
                 transforms.ToTensor(),
                 transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
             ]
@@ -193,7 +197,7 @@ def get_transforms(mode="train"):
     else:
         return transforms.Compose(
             [
-                transforms.Resize((CFG.size[0], CFG.size[1])),
+                transforms.Resize((Configurations.size[0], Configurations.size[1])),
                 transforms.ToTensor(),
                 transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
             ]
@@ -205,7 +209,7 @@ class ImageEncoder(nn.Module):
     """
 
     def __init__(
-        self, model_name=CFG.model_name, pretrained=CFG.pretrained, trainable=CFG.trainable
+        self, model_name=Configurations.model_name, pretrained=Configurations.pretrained, trainable=Configurations.trainable
     ):
         super().__init__()
         self.model = timm.create_model(
@@ -219,7 +223,7 @@ class ImageEncoder(nn.Module):
     
     
 class TextEncoder(nn.Module):
-    def __init__(self, model_name=CFG.text_encoder_model, pretrained=CFG.pretrained, trainable=CFG.trainable):
+    def __init__(self, model_name=Configurations.text_encoder_model, pretrained=Configurations.pretrained, trainable=Configurations.trainable):
         super().__init__()
         if pretrained:
             self.model = DistilBertModel.from_pretrained(model_name)
@@ -242,8 +246,8 @@ class ProjectionHead(nn.Module):
     def __init__(
         self,
         embedding_dim,
-        projection_dim=CFG.projection_dim,
-        dropout=CFG.dropout
+        projection_dim=Configurations.projection_dim,
+        dropout=Configurations.dropout
     ):
         super().__init__()
         self.projection = nn.Linear(embedding_dim, projection_dim)
@@ -265,9 +269,9 @@ class ProjectionHead(nn.Module):
 class CLIPModel(nn.Module):
     def __init__(
         self,
-        temperature=CFG.temperature,
-        image_embedding=CFG.image_embedding,
-        text_embedding=CFG.text_embedding,
+        temperature=Configurations.temperature,
+        image_embedding=Configurations.image_embedding,
+        text_embedding=Configurations.text_embedding,
     ):
         super().__init__()
         self.image_encoder = ImageEncoder()
@@ -309,8 +313,8 @@ def cross_entropy(preds, targets, reduction='none'):
     
     
 def make_train_valid_dfs():
-    dataframe = pd.read_csv(f"{CFG.captions_path}/captions.csv")
-    max_id = dataframe["id"].max() + 1 if not CFG.debug else 100
+    dataframe = pd.read_csv(f"{Configurations.captions_path}/captions.csv")
+    max_id = dataframe["id"].max() + 1 if not Configurations.debug else 100
     image_ids = np.arange(0, max_id)
     np.random.seed(42)
     valid_ids = np.random.choice(
@@ -333,8 +337,8 @@ def build_loaders(dataframe, tokenizer, mode):
     )
     dataloader = torch.utils.data.DataLoader(
         dataset,
-        batch_size=CFG.batch_size,
-        num_workers=CFG.num_workers,
+        batch_size=Configurations.batch_size,
+        num_workers=Configurations.num_workers,
         shuffle=True if mode == "train" else False,
     )
     return dataloader
@@ -344,7 +348,7 @@ def train_epoch(model, train_loader, optimizer, lr_scheduler, step):
     loss_meter = AvgMeter()
     tqdm_object = tqdm(train_loader, total=len(train_loader))
     for batch in tqdm_object:
-        batch = {k: v.to(CFG.device) for k, v in batch.items() if k != "caption"}
+        batch = {k: v.to(Configurations.device) for k, v in batch.items() if k != "caption"}
         loss = model(batch)
         optimizer.zero_grad()
         loss.backward()
@@ -363,7 +367,7 @@ def valid_epoch(model, valid_loader):
 
     tqdm_object = tqdm(valid_loader, total=len(valid_loader))
     for batch in tqdm_object:
-        batch = {k: v.to(CFG.device) for k, v in batch.items() if k != "caption"}
+        batch = {k: v.to(Configurations.device) for k, v in batch.items() if k != "caption"}
         loss = model(batch)
 
         count = batch["image"].size(0)
@@ -380,7 +384,7 @@ def make_prediction(model, test_loader):
     text_embeddings_list = []
     with torch.no_grad():
         for batch in tqdm(test_loader, total=len(test_loader)):
-            batch = {k: v.to(CFG.device) for k, v in batch.items() if k != "caption"}
+            batch = {k: v.to(Configurations.device) for k, v in batch.items() if k != "caption"}
             image_features = model.image_encoder(batch["image"])
             text_features = model.text_encoder(
                 input_ids=batch["input_ids"], attention_mask=batch["attention_mask"]
@@ -399,7 +403,35 @@ def make_prediction(model, test_loader):
 
 
 def main():
-     
+    
+    cfg_paras = {
+    'debug':False,
+    'save_model_path':"/data1/cehou_data/LLM_safety/LLM_model/clip_model",
+    'batch_size':20,
+    'head_lr':1e-3,
+    'image_encoder_lr':1e-4,
+    'text_encoder_lr':1e-5,
+    'weight_decay':1e-3,
+    'patience':1,
+    'factor':0.8,
+    'epochs':200,
+    'image_embedding':2048,
+    'text_embedding':768,
+    'max_length':512,
+    'size':(300, 400),
+    
+    # models for image and text
+    'model_name':'resnet50',
+    'text_encoder_model':"distilbert-base-uncased",
+    'text_tokenizer': "distilbert-base-uncased",
+    
+    # deep learning model parameters
+    'temperature':0.07,
+    'projection_dim':256,
+    'dropout':0.1    
+    }
+    
+    CFG = Configurations(cfg_paras)
     dataset_path = CFG.dataset_path
     df = pd.read_pickle(dataset_path)
     
