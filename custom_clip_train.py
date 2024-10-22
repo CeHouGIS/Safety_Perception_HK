@@ -22,6 +22,10 @@ import warnings
 warnings.filterwarnings("ignore")
 
 parser = argparse.ArgumentParser(description='GSV auto download script')
+parser.add_argument('--save-model-path', default=f"/data1/cehou_data/LLM_safety/LLM_model/clip_model", type=str,
+                    help='batch size')
+parser.add_argument('--batch-size', default=20, type=int,
+                    help='batch size')
 parser.add_argument('--batch-size', default=20, type=int,
                     help='batch size')
 parser.add_argument('--head-lr', default=1e-3, type=float,
@@ -60,7 +64,7 @@ class CFG:
     # image_path = "../input/flickr-image-dataset/flickr30k_images/flickr30k_images"
     dataset_config = dataset_path.split("/")[-1].split("_")
     # save_model_path = f"/data_nas/cehou/LLM_safety/model/model_baseline.pt"
-    save_model_path = f"/data1/cehou_data/LLM_safety/LLM_model/clip_model"
+    save_model_path = args.save_model_path
     save_model_name = f"model_{dataset_config[1]}_{dataset_config[2]}_{dataset_config[3]}_{dataset_config[4]}.pt"
     if not os.path.exists(save_model_path):
         os.makedirs(save_model_path)
