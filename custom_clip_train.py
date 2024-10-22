@@ -129,7 +129,7 @@ def get_lr(optimizer):
         return param_group["lr"]
     
 class CLIPDataset(torch.utils.data.Dataset):
-    def __init__(self, image_filenames, captions, tokenizer, transforms, img_type):
+    def __init__(self, image_filenames, captions, tokenizer, transforms, img_type, cfg_paras):
         """
         image_filenames and cpations must have the same length; so, if there are
         multiple captions for each image, the image_filenames must have repetitive
@@ -139,7 +139,7 @@ class CLIPDataset(torch.utils.data.Dataset):
         self.image_filenames = image_filenames
         self.captions = list(captions)
         self.encoded_captions = tokenizer(
-            list(captions), padding=True, truncation=True, max_length=Configurations.max_length
+            list(captions), padding=True, truncation=True, max_length=cfg_paras['max_length']
         )
         self.transforms = transforms
         self.img_type = img_type
@@ -187,11 +187,11 @@ class CLIPDataset(torch.utils.data.Dataset):
 #     transforms=None
 # )
 
-def get_transforms(mode="train"):
+def get_transforms(cfg_paras, mode="train"):
     if mode == "train":
         return transforms.Compose(
             [
-                transforms.Resize((Configurations.size[0], Configurations.size[1])),
+                transforms.Resize(cfg_paras['size']),
                 transforms.ToTensor(),
                 transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
             ]
@@ -199,7 +199,7 @@ def get_transforms(mode="train"):
     else:
         return transforms.Compose(
             [
-                transforms.Resize((Configurations.size[0], Configurations.size[1])),
+                transforms.Resize(cfg_paras['size']),
                 transforms.ToTensor(),
                 transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
             ]
@@ -211,29 +211,32 @@ class ImageEncoder(nn.Module):
     """
 
     def __init__(
-        self, model_name=Configurations.model_name, pretrained=Configurations.pretrained, trainable=Configurations.trainable
+        self, 
+        cfg_paras
     ):
         super().__init__()
         self.model = timm.create_model(
-            model_name, pretrained, num_classes=0, global_pool="avg"
+            cfg_paras['model_name'], cfg_paras['pretrained'], num_classes=0, global_pool="avg"
         )
         for p in self.model.parameters():
-            p.requires_grad = trainable
+            p.requires_grad = cfg_paras['trainable']
 
     def forward(self, x):
         return self.model(x)
     
     
 class TextEncoder(nn.Module):
-    def __init__(self, model_name=Configurations.text_encoder_model, pretrained=Configurations.pretrained, trainable=Configurations.trainable):
+    def __init__(self, 
+                 cfg_paras
+                 ):
         super().__init__()
-        if pretrained:
-            self.model = DistilBertModel.from_pretrained(model_name)
+        if cfg_paras['pretrained']:
+            self.model = DistilBertModel.from_pretrained(cfg_paras['text_encoder_model'])
         else:
             self.model = DistilBertModel(config=DistilBertConfig())
             
         for p in self.model.parameters():
-            p.requires_grad = trainable
+            p.requires_grad = cfg_paras['trainable']
 
         # we are using the CLS token hidden representation as the sentence's embedding
         self.target_token_idx = 0
@@ -247,16 +250,19 @@ class TextEncoder(nn.Module):
 class ProjectionHead(nn.Module):
     def __init__(
         self,
-        embedding_dim,
-        projection_dim=Configurations.projection_dim,
-        dropout=Configurations.dropout
+        cfg_paras,
+        data_type
     ):
         super().__init__()
-        self.projection = nn.Linear(embedding_dim, projection_dim)
+        if data_type == 'image':
+            self.projection = nn.Linear(cfg_paras['image_embedding'], cfg_paras['projection_dim'])
+        elif data_type == 'text':
+            self.projection = nn.Linear(cfg_paras['text_embedding'], cfg_paras['projection_dim'])
+        # self.projection = nn.Linear(cfg_paras['embedding_dim'], cfg_paras['projection_dim'])
         self.gelu = nn.GELU()
-        self.fc = nn.Linear(projection_dim, projection_dim)
-        self.dropout = nn.Dropout(dropout)
-        self.layer_norm = nn.LayerNorm(projection_dim)
+        self.fc = nn.Linear(cfg_paras['projection_dim'], cfg_paras['projection_dim'])
+        self.dropout = nn.Dropout(cfg_paras['dropout'])
+        self.layer_norm = nn.LayerNorm(cfg_paras['projection_dim'])
     
     def forward(self, x):
         projected = self.projection(x)
@@ -271,16 +277,14 @@ class ProjectionHead(nn.Module):
 class CLIPModel(nn.Module):
     def __init__(
         self,
-        temperature=Configurations.temperature,
-        image_embedding=Configurations.image_embedding,
-        text_embedding=Configurations.text_embedding,
+        cfg_paras
     ):
         super().__init__()
         self.image_encoder = ImageEncoder()
         self.text_encoder = TextEncoder()
-        self.image_projection = ProjectionHead(embedding_dim=image_embedding)
-        self.text_projection = ProjectionHead(embedding_dim=text_embedding)
-        self.temperature = temperature
+        self.image_projection = ProjectionHead(cfg_paras, data_type='image')
+        self.text_projection = ProjectionHead(cfg_paras, data_type='text')
+        self.temperature = cfg_paras['temperature']
 
     def forward(self, batch):
         # Getting Image and Text Features
@@ -314,9 +318,9 @@ def cross_entropy(preds, targets, reduction='none'):
         return loss.mean()
     
     
-def make_train_valid_dfs():
-    dataframe = pd.read_csv(f"{Configurations.captions_path}/captions.csv")
-    max_id = dataframe["id"].max() + 1 if not Configurations.debug else 100
+def make_train_valid_dfs(cfg_paras):
+    dataframe = pd.read_csv(f"{cfg_paras['captions_path']}/captions.csv")
+    max_id = dataframe["id"].max() + 1 if not cfg_paras['debug'] else 100
     image_ids = np.arange(0, max_id)
     np.random.seed(42)
     valid_ids = np.random.choice(
@@ -328,7 +332,7 @@ def make_train_valid_dfs():
     return train_dataframe, valid_dataframe
 
 
-def build_loaders(dataframe, tokenizer, mode):
+def build_loaders(dataframe, tokenizer, mode, cfg_paras):
     transforms = get_transforms(mode=mode)
     dataset = CLIPDataset(
         [i['GSV_path'] for i in dataframe], 
@@ -339,18 +343,18 @@ def build_loaders(dataframe, tokenizer, mode):
     )
     dataloader = torch.utils.data.DataLoader(
         dataset,
-        batch_size=Configurations.batch_size,
-        num_workers=Configurations.num_workers,
+        batch_size=cfg_paras['batch_size'],
+        num_workers=cfg_paras['num_workers'],
         shuffle=True if mode == "train" else False,
     )
     return dataloader
 
 
-def train_epoch(model, train_loader, optimizer, lr_scheduler, step):
+def train_epoch(model, train_loader, optimizer, lr_scheduler, step, cfg_paras):
     loss_meter = AvgMeter()
     tqdm_object = tqdm(train_loader, total=len(train_loader))
     for batch in tqdm_object:
-        batch = {k: v.to(Configurations.device) for k, v in batch.items() if k != "caption"}
+        batch = {k: v.to(cfg_paras['device']) for k, v in batch.items() if k != "caption"}
         loss = model(batch)
         optimizer.zero_grad()
         loss.backward()
@@ -364,12 +368,12 @@ def train_epoch(model, train_loader, optimizer, lr_scheduler, step):
     return loss_meter
 
 
-def valid_epoch(model, valid_loader):
+def valid_epoch(model, valid_loader, cfg_paras):
     loss_meter = AvgMeter()
 
     tqdm_object = tqdm(valid_loader, total=len(valid_loader))
     for batch in tqdm_object:
-        batch = {k: v.to(Configurations.device) for k, v in batch.items() if k != "caption"}
+        batch = {k: v.to(cfg_paras['device']) for k, v in batch.items() if k != "caption"}
         loss = model(batch)
 
         count = batch["image"].size(0)
@@ -379,14 +383,14 @@ def valid_epoch(model, valid_loader):
     return loss_meter
 
 
-def make_prediction(model, test_loader):
+def make_prediction(model, test_loader, cfg_paras):
     model.eval()
     predictions = []
     image_embeddings_list = []
     text_embeddings_list = []
     with torch.no_grad():
         for batch in tqdm(test_loader, total=len(test_loader)):
-            batch = {k: v.to(Configurations.device) for k, v in batch.items() if k != "caption"}
+            batch = {k: v.to(cfg_paras['device']) for k, v in batch.items() if k != "caption"}
             image_features = model.image_encoder(batch["image"])
             text_features = model.text_encoder(
                 input_ids=batch["input_ids"], attention_mask=batch["attention_mask"]
