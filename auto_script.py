@@ -4,7 +4,7 @@ import sys
 import torch
 from custom_clip_train import clip_train
 sys.path.append('/code/LLM-crime/safety_perception_model/single_model')
-from safety_train_withCLIP import safety_main
+from safety_train_withCLIP import safety_main, paras
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -68,5 +68,4 @@ print("==============================================")
 print("[3/3] Evaluate the models...")
 print("==============================================")
 
-def evaluate_models():
-    pass
+eval(cfg_paras_safety)
