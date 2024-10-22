@@ -39,6 +39,28 @@ def get_transforms(resize_size):
         ]
     )    
 
+class SafetyPerceptionCLIPDataset(Dataset):
+    def __init__(self, data, img_feature):
+        """
+        Args:
+            data (list or np.array): List or array of data samples.
+            labels (list or np.array): List or array of labels corresponding to the data samples.
+            transform (callable, optional): Optional transform to be applied on a sample.
+        """
+
+        self.data = data
+        self.image_feature = img_feature
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        image_feature_line = self.image_feature[idx]
+        label = self.data[idx]["labels"]
+
+        return image_feature_line, label
+      
+
 def create_dataset_from_df(data, with_nan=False, save=True):
     data_group = data.groupby("Image_ID")
     data_ls = []

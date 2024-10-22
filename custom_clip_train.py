@@ -82,6 +82,7 @@ class Configurations:
         self.factor = cfg_paras['factor']
         self.epochs = cfg_paras['epochs']
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.early_stopping_threshold = cfg_paras['early_stopping_threshold']
 
         self.model_name = cfg_paras['model_name']
         self.image_embedding = cfg_paras['image_embedding']
@@ -102,6 +103,7 @@ class Configurations:
         self.num_projection_layers = cfg_paras['num_projection_layers']
         self.projection_dim = cfg_paras['projection_dim']
         self.dropout = cfg_paras['dropout']
+        
     
     
 ## Utils
@@ -401,6 +403,66 @@ def make_prediction(model, test_loader):
     # return predictions
     return image_embeddings_list, text_embeddings_list
 
+# define train function, similar to main()
+def clip_train(cfg_paras):
+    
+    CFG = Configurations(cfg_paras)
+    dataset_path = CFG.dataset_path
+    df = pd.read_pickle(dataset_path)
+    
+    # train_df, valid_df = make_train_valid_dfs()
+    tokenizer = DistilBertTokenizer.from_pretrained(CFG.text_tokenizer)
+    
+    train_num = int(len(df) * 0.7)
+    train_loader = build_loaders(df[:train_num], tokenizer, mode="train")
+    valid_loader = build_loaders(df[train_num:], tokenizer, mode="valid")
+
+    print("use device: ", CFG.device)
+    model = CLIPModel().to(CFG.device)
+    params = [
+        {"params": model.image_encoder.parameters(), "lr": CFG.image_encoder_lr},
+        {"params": model.text_encoder.parameters(), "lr": CFG.text_encoder_lr},
+        {"params": itertools.chain(
+            model.image_projection.parameters(), model.text_projection.parameters()
+        ), "lr": CFG.head_lr, "weight_decay": CFG.weight_decay}
+    ]
+    
+    run = neptune.init_run(
+        project="ce-hou/LLM-CRIME",
+        api_token="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJmYzFmZTZkYy1iZmY3LTQ1NzUtYTRlNi1iYTgzNjRmNGQyOGUifQ==",
+    )  # your credentials
+    run["parameters"] = vars(CFG)
+        
+    optimizer = torch.optim.AdamW(params, weight_decay=0.)
+    lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode="min", patience=CFG.patience, factor=CFG.factor
+    )
+    step = "epoch"
+
+    best_loss = float('inf')
+    count_after_best = 0
+    for epoch in range(CFG.epochs):
+        print(f"Epoch: {epoch + 1}")
+        model.train()
+        train_loss = train_epoch(model, train_loader, optimizer, lr_scheduler, step)
+        run["train/train_loss"].append(train_loss.avg)
+        model.eval()
+        with torch.no_grad():
+            valid_loss = valid_epoch(model, valid_loader)
+        
+        if valid_loss.avg < best_loss:
+            best_loss = valid_loss.avg
+            count_after_best = 0
+            torch.save(model.state_dict(), os.path.join(CFG.save_model_path, CFG.save_model_name))
+            print("Saved Best Model! to", os.path.join(CFG.save_model_path, CFG.save_model_name))
+        
+        lr_scheduler.step(valid_loss.avg)
+        run["train/valid_loss"].append(valid_loss.avg)
+        
+        count_after_best += 1
+        if count_after_best > 20:
+            print("Early Stopping!")
+
 
 def main():
     
@@ -414,7 +476,7 @@ def main():
     'weight_decay':1e-3,
     'patience':1,
     'factor':0.8,
-    'epochs':200,
+    'epochs':400,
     'image_embedding':2048,
     'text_embedding':768,
     'max_length':512,
@@ -428,7 +490,8 @@ def main():
     # deep learning model parameters
     'temperature':0.07,
     'projection_dim':256,
-    'dropout':0.1    
+    'dropout':0.1,
+    'early_stopping_threshold':20
     }
     
     CFG = Configurations(cfg_paras)
