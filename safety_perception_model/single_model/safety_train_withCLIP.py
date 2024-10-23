@@ -6,10 +6,6 @@ import torch.nn as nn
 import torch.optim as optim
 from models import TransformerRegressionModel
 import sys
-sys.path.append("/code/LLM-crime/single_model")
-from torch.utils.data import Dataset
-from PIL import Image
-import torchvision.transforms as transforms
 from safety_perception_dataset import SafetyPerceptionCLIPDataset
 import numpy as np
 import pandas as pd
@@ -20,7 +16,7 @@ from models import TransformerRegressionModel, ViTClassifier
 sys.path.append("/code/LLM-crime")
 from custom_clip_train import CLIPModel, CLIPDataset, build_loaders, make_prediction
 from transformers import DistilBertModel, DistilBertConfig, DistilBertTokenizer
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 from sklearn.metrics import confusion_matrix
 import seaborn as sns
 from sklearn.metrics import roc_curve, auc
@@ -102,6 +98,7 @@ def train_model(train_loader, valid_loader, paras):
         val_running_loss = 0.0
         correct = 0
         total = 0
+        print("valid_loader: ", len(valid_loader))
         with torch.no_grad():
             for inputs,labels in valid_loader:
                 inputs = inputs.to(paras['device'])
@@ -132,13 +129,14 @@ def train_model(train_loader, valid_loader, paras):
 def safety_main(paras):
     # 数据加载器
     img_feature,_ = get_img_feature(paras)
-
     data = pd.read_csv(paras['placepulse_datapath'])
     SVI_namelist = pd.read_pickle(paras['dataset_path'])
+    namelist = [SVI_namelist[i]['GSV_name'] for i in range(len(SVI_namelist))]
+    data = data[(data['Category'] == 'safety') & (data['Image_ID'].isin(namelist))].sort_values(by='Image_ID').reset_index(drop=True)
+
     train_len = int(0.7*len(img_feature))
-    valid_len = len(img_feature) - train_len
-    train_dataset = SafetyPerceptionCLIPDataset(data[:train_len], img_feature[:train_len], SVI_namelist, paras)
-    valid_dataset = SafetyPerceptionCLIPDataset(data[train_len:valid_len], img_feature[train_len:valid_len], SVI_namelist, paras)
+    train_dataset = SafetyPerceptionCLIPDataset(data[:train_len], img_feature[:train_len], paras)
+    valid_dataset = SafetyPerceptionCLIPDataset(data[train_len:], img_feature[train_len:], paras)
     train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
     valid_loader = DataLoader(valid_dataset, batch_size=16, shuffle=False)
 
