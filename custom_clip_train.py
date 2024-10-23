@@ -513,6 +513,8 @@ def main(cfg_paras):
         
         if valid_loss.avg < best_loss:
             best_loss = valid_loss.avg
+            if not os.path.exists(os.path.join(cfg_paras['save_model_path'], cfg_paras['save_model_name'])):
+                os.makedirs(os.path.join(cfg_paras['save_model_path'], cfg_paras['save_model_name']))
             torch.save(model.state_dict(), os.path.join(cfg_paras['save_model_path'], cfg_paras['save_model_name']))
             print("Saved Best Model! to", os.path.join(cfg_paras['save_model_path'], cfg_paras['save_model_name']))
         

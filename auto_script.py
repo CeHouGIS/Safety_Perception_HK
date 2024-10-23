@@ -17,8 +17,8 @@ print("==============================================")
 
 cfg_paras = {
     'debug':False,
-    'dataset_path':"/data1/cehou_data/LLM_safety/img_text_data/dataset_baseline_baseline_baseline_baseline_501.pkl",
-    'save_model_path':"/data1/cehou_data/LLM_safety/LLM_models/clip_model",
+    'dataset_path':"/data1/cehou_data/LLM_safety/img_text_data/dataset_baseline_baseline_baseline_baseline_1401.pkl",
+    'save_model_path':"/data1/cehou_data/LLM_safety/LLM_models/clip_model/test",
     'save_model_name':"model_baseline_test.pt",
     'device':torch.device("cuda:1" if torch.cuda.is_available() else "cpu"),
     'batch_size':20,
@@ -50,11 +50,11 @@ cfg_paras = {
     'early_stopping_threshold':20,
     
     # safety perception
-    'CLIP_model_path': "/data1/cehou_data/LLM_safety/LLM_models/clip_model/model_baseline_baseline_baseline_baseline.pt",
+    # 'CLIP_model_path': "/data1/cehou_data/LLM_safety/LLM_models/clip_model/test/model_baseline_best.pt",
     'variables_save_paths': f"/data1/cehou_data/LLM_safety/middle_variables/test",
     'safety_model_save_path' : f"/data1/cehou_data/LLM_safety/LLM_models/safety_perception_model/",
     'placepulse_datapath': "/data_nas/cehou/LLM_safety/PlacePulse2.0/image_perception.csv",
-    'eval_path': "/data1/cehou_data/LLM_safety/eval/",
+    'eval_path': "/data1/cehou_data/LLM_safety/eval/test/",
     'train_type': 'classification',
     'safety_epochs': 100
     }

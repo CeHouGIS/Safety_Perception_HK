@@ -30,7 +30,7 @@ run = neptune.init_run(
 
 
 def get_img_feature(paras):
-    CLIP_model_path = paras['CLIP_model_path']
+    CLIP_model_path = os.path.join(paras['save_model_path'], paras['save_model_name'])
     dataset_path = paras['dataset_path']
     save_paths = paras['variables_save_paths']
     if not os.path.exists(save_paths):
@@ -131,8 +131,8 @@ def safety_main(paras):
     img_feature,_ = get_img_feature(paras)
     data = pd.read_csv(paras['placepulse_datapath'])
     SVI_namelist = pd.read_pickle(paras['dataset_path'])
-    namelist = [SVI_namelist[i]['GSV_name'] for i in range(len(SVI_namelist))]
-    data = data[(data['Category'] == 'safety') & (data['Image_ID'].isin(namelist))].sort_values(by='Image_ID').reset_index(drop=True)
+    namelist = pd.DataFrame([SVI_namelist[i]['GSV_name'] for i in range(len(SVI_namelist))],columns=['Image_ID'])
+    data = namelist.merge(data[data['Category'] == 'safety'], on='Image_ID')
 
     train_len = int(0.7*len(img_feature))
     train_dataset = SafetyPerceptionCLIPDataset(data[:train_len], img_feature[:train_len], paras)
@@ -150,8 +150,8 @@ def eval(paras):
     img_feature = np.load(os.path.join(paras['variables_save_paths'], 'img_feature.npy'))  
     data = pd.read_csv(paras['placepulse_datapath'])
     SVI_namelist = pd.read_pickle(paras['dataset_path'])
-    namelist = [SVI_namelist[i]['GSV_name'] for i in range(len(SVI_namelist))]
-    data = data[(data['Category'] == 'safety') & (data['Image_ID'].isin(namelist))].sort_values(by='Image_ID').reset_index(drop=True)
+    namelist = pd.DataFrame([SVI_namelist[i]['GSV_name'] for i in range(len(SVI_namelist))],columns=['Image_ID'])
+    data = namelist.merge(data[data['Category'] == 'safety'], on='Image_ID')
 
     valid_dataset = SafetyPerceptionCLIPDataset(data, img_feature, paras)
     valid_loader = DataLoader(valid_dataset, batch_size=32, shuffle=False)
