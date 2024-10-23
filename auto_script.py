@@ -75,8 +75,8 @@ for parameter in variable_paras:
     # update data
     # text_processing(cfg_paras['dataset_path'], 'baseline')
 
-    clip_train(cfg_paras)
-    torch.cuda.empty_cache()
+    # clip_train(cfg_paras)
+    # torch.cuda.empty_cache()
 
     # 运行safety_train.py
     print("==============================================")

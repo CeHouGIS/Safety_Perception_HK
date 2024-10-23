@@ -22,9 +22,10 @@ class SafetyPerceptionDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):
-        image = np.array(Image.open(f"{self.img_path}/{self.data[idx]['Image_ID']}.jpg"))
+        image = np.array(Image.open(f"{self.img_path}/{self.data.iloc[idx]['Image_ID']}.jpg"))
         image = Image.fromarray(image)
-        label = self.data[idx]["labels"]
+        label = self.data.iloc[idx]["Q_Value"]
+        label = label * 100 // 5
         if self.transform:            
             image = self.transform(image)
 
