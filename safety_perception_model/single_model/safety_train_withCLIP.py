@@ -98,11 +98,10 @@ def train_model(train_loader, valid_loader, paras):
         val_running_loss = 0.0
         correct = 0
         total = 0
-        print("valid_loader: ", len(valid_loader))
         with torch.no_grad():
             for inputs,labels in valid_loader:
                 inputs = inputs.to(paras['device'])
-                labels = labels.to(paras['device'])
+                labels = labels.to(paras['device']).long()
                 outputs = model(inputs)
                 loss = criterion(outputs, labels)
                 val_running_loss += loss.item()
@@ -110,7 +109,7 @@ def train_model(train_loader, valid_loader, paras):
                 _, predicted = torch.max(outputs.data, 1)
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
-                print(f'Accuracy of the model on the test images: {100 * correct / total:.2f}%')
+                # print(f'Accuracy of the model on the test images: {100 * correct / total:.2f}%')
 
         count_after_best += 1
         if val_running_loss < best_loss:
@@ -118,13 +117,13 @@ def train_model(train_loader, valid_loader, paras):
             count_after_best = 0
             torch.save(model.state_dict(), os.path.join(paras['safety_model_save_path'], f"best_{paras['train_type']}_model.pth"))
             print(f"save the best model to {os.path.join(paras['safety_model_save_path'])}.")
-        print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {train_running_loss/train_loader.batch_size:.4f}, Validation Loss: {val_running_loss/valid_loader.batch_size:.4f}")      
         # run["train/total_loss"].append(train_running_loss/len(train_loader))
         # run["valid/total_loss"].append(val_running_loss/len(valid_loader))
         print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {train_running_loss/train_loader.batch_size:.4f}, Validation Loss: {val_running_loss/valid_loader.batch_size:.4f}")
-        # if count_after_best > paras['early_stopping_threshold']:
-        #     print("Early Stopping!")
-        #     break
+        print(f"Accuracy: {100 * correct / total:.2f}%")
+        if count_after_best > paras['early_stopping_threshold']:
+            print("Early Stopping!")
+            break
         
 def safety_main(paras):
     # 数据加载器
@@ -147,10 +146,13 @@ def safety_main(paras):
 def eval(paras):
     # overall performance, confusion matrix, ROC curve, precision-recall curve
     # 后面只做一个专门用来validate的dataset
-    img_feature = np.load(os.path.join(paras['variables_save_paths'], 'img_feature.npy'))
+    img_feature = np.load(os.path.join(paras['variables_save_paths'], 'img_feature.npy'))  
     data = pd.read_csv(paras['placepulse_datapath'])
     SVI_namelist = pd.read_pickle(paras['dataset_path'])
-    valid_dataset = SafetyPerceptionCLIPDataset(data, img_feature, SVI_namelist, paras)
+    namelist = [SVI_namelist[i]['GSV_name'] for i in range(len(SVI_namelist))]
+    data = data[(data['Category'] == 'safety') & (data['Image_ID'].isin(namelist))].sort_values(by='Image_ID').reset_index(drop=True)
+
+    valid_dataset = SafetyPerceptionCLIPDataset(data, img_feature, paras)
     valid_loader = DataLoader(valid_dataset, batch_size=32, shuffle=False)
     import matplotlib.pyplot as plt
 

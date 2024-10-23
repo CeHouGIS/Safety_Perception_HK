@@ -62,7 +62,7 @@ class SafetyPerceptionCLIPDataset(Dataset):
         if self.train_type == 'classification':
             label = self.data.iloc[idx,-1] * 100 // 5
         elif self.train_type == 'regression':
-            label = self.data.iloc[idx,-1] 
+            label = self.data.iloc[idx,-1].astype(int)
         return image_feature_line, label
       
 
