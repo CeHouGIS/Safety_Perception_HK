@@ -31,7 +31,6 @@ run = neptune.init_run(
 
 def get_img_feature(paras):
     CLIP_model_path = os.path.join(paras['save_model_path'], paras['save_model_name'])
-    dataset_path = paras['dataset_path']
     save_paths = paras['variables_save_paths']
     if not os.path.exists(save_paths):
         os.makedirs(save_paths)
@@ -42,7 +41,8 @@ def get_img_feature(paras):
     img_encoder_paras = torch.load(CLIP_model_path)
     img_encoder = CLIPModel(paras)
     img_encoder.load_state_dict(img_encoder_paras)
-    baseline_data = pd.read_pickle(dataset_path)
+    baseline_data = pd.read_pickle(paras['dataset_path'])
+    # print("baseline_data: ", len(baseline_data))
     tokenizer = DistilBertTokenizer.from_pretrained(text_tokenizer)
 
     data_loader = build_loaders(baseline_data, tokenizer, mode="valid", cfg_paras=paras)
@@ -68,7 +68,7 @@ def train_model(train_loader, valid_loader, paras):
 
         model = TransformerRegressionModel(input_dim, model_dim, num_heads, num_layers, output_dim).to(paras['device'])
         criterion = nn.MSELoss()
-        optimizer = optim.Adam(model.parameters(), lr=0.001)
+        optimizer = optim.Adam(model.parameters(), lr=paras["CNN_lr"])
         
     elif paras['train_type'] == 'classification':
         model = ViTClassifier(num_classes=20).to(paras['device'])
@@ -115,6 +115,8 @@ def train_model(train_loader, valid_loader, paras):
         if val_running_loss < best_loss:
             best_loss = val_running_loss
             count_after_best = 0
+            if not os.path.exists(paras['safety_model_save_path']):
+                os.makedirs(paras['safety_model_save_path'])
             torch.save(model.state_dict(), os.path.join(paras['safety_model_save_path'], f"best_{paras['train_type']}_model.pth"))
             print(f"save the best model to {os.path.join(paras['safety_model_save_path'])}.")
         run["train/total_loss"].append(train_running_loss/len(train_loader))
@@ -186,6 +188,8 @@ def eval(paras):
     plt.xlabel('Predicted')
     plt.ylabel('True')
     plt.title('Confusion Matrix')
+    if not os.path.exists(paras['eval_path']):
+        os.makedirs(paras['eval_path'])
     plt.savefig(os.path.join(paras['eval_path'],'test_confusion_matrix.png'))
     plt.close()
     

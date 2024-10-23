@@ -57,7 +57,9 @@ cfg_paras = {
     'placepulse_datapath': "/data_nas/cehou/LLM_safety/PlacePulse2.0/image_perception.csv",
     'eval_path': "/data1/cehou_data/LLM_safety/eval/test/",
     'train_type': 'classification',
-    'safety_epochs': 100
+    'safety_epochs': 100,
+    'CNN_lr': 1e-3,
+    
     }
 
 # cfg_paras_clip = {
@@ -89,11 +91,11 @@ cfg_paras = {
 # }
 
 # update data
-text_processing(cfg_paras['dataset_path'], 'baseline')
+# text_processing(cfg_paras['dataset_path'], 'baseline')
 
 
-clip_train(cfg_paras)
-torch.cuda.empty_cache()
+# clip_train(cfg_paras)
+# torch.cuda.empty_cache()
 
 # 运行safety_train.py
 print("==============================================")
