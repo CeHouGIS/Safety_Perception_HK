@@ -111,8 +111,8 @@ def train_model(train_loader, valid_loader, paras):
         if val_running_loss < best_loss:
             best_loss = val_running_loss
             count_after_best = 0
-            torch.save(model.state_dict(), os.path.join(paras['model_save_path'], f"best_{paras['train_type']}_model.pth"))
-            print(f"save the best model to {os.path.join(paras['model_save_path'])}.")
+            torch.save(model.state_dict(), os.path.join(paras['safety_model_save_path'], f"best_{paras['train_type']}_model.pth"))
+            print(f"save the best model to {os.path.join(paras['safety_model_save_path'])}.")
 
         print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {train_running_loss/len(train_loader):.4f}, Validation Loss: {val_running_loss/len(valid_loader):.4f}")      
         # run["train/total_loss"].append(train_running_loss/len(train_loader))
