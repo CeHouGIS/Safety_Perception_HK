@@ -23,10 +23,10 @@ from sklearn.metrics import roc_curve, auc
 from sklearn.preprocessing import label_binarize
 from sklearn.metrics import precision_recall_curve, average_precision_score
 
-# run = neptune.init_run(
-#     project="ce-hou/Safety",
-#     api_token="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJmYzFmZTZkYy1iZmY3LTQ1NzUtYTRlNi1iYTgzNjRmNGQyOGUifQ==",
-# )  # your credentials
+run = neptune.init_run(
+    project="ce-hou/Safety",
+    api_token="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJmYzFmZTZkYy1iZmY3LTQ1NzUtYTRlNi1iYTgzNjRmNGQyOGUifQ==",
+)  # your credentials
 
 
 def get_img_feature(paras):
@@ -117,8 +117,9 @@ def train_model(train_loader, valid_loader, paras):
             count_after_best = 0
             torch.save(model.state_dict(), os.path.join(paras['safety_model_save_path'], f"best_{paras['train_type']}_model.pth"))
             print(f"save the best model to {os.path.join(paras['safety_model_save_path'])}.")
-        # run["train/total_loss"].append(train_running_loss/len(train_loader))
-        # run["valid/total_loss"].append(val_running_loss/len(valid_loader))
+        run["train/total_loss"].append(train_running_loss/len(train_loader))
+        run["valid/total_loss"].append(val_running_loss/len(valid_loader))
+        run["valid/accuracy"].append(correct / total)
         print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {train_running_loss/train_loader.batch_size:.4f}, Validation Loss: {val_running_loss/valid_loader.batch_size:.4f}")
         print(f"Accuracy: {100 * correct / total:.2f}%")
         if count_after_best > paras['early_stopping_threshold']:
