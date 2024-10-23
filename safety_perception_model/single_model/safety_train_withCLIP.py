@@ -72,8 +72,10 @@ def train_model(train_loader, valid_loader, paras):
         
     elif paras['train_type'] == 'classification':
         model = ViTClassifier(num_classes=20).to(paras['device'])
+        class_weights = torch.tensor([1.0, 2.0, 3.0])  # 根据类别数量设置权重
+        # criterion = nn.CrossEntropyLoss(weight=class_weights)
         criterion = nn.CrossEntropyLoss()
-        optimizer = optim.Adam(model.parameters(), lr=1e-4)
+        optimizer = optim.Adam(model.parameters(), lr=paras["CNN_lr"])
 
     # Training loop
     num_epochs = paras['safety_epochs']
