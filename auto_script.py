@@ -91,6 +91,7 @@ cfg_paras = {
 # update data
 text_processing(cfg_paras['dataset_path'], 'baseline')
 
+
 clip_train(cfg_paras)
 torch.cuda.empty_cache()
 

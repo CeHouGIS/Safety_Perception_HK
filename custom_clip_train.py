@@ -410,6 +410,9 @@ def make_prediction(model, test_loader, cfg_paras):
 def clip_train(cfg_paras):
     # CFG = Configurations(cfg_paras)
     df = pd.read_pickle(cfg_paras['dataset_path'])
+
+    # create paths
+
     
     # train_df, valid_df = make_train_valid_dfs()
     tokenizer = DistilBertTokenizer.from_pretrained(cfg_paras['text_tokenizer'])
@@ -454,6 +457,10 @@ def clip_train(cfg_paras):
         if valid_loss.avg < best_loss:
             best_loss = valid_loss.avg
             count_after_best = 0
+            
+            if not os.path.exists(os.path.join(cfg_paras['save_model_path'])):
+                os.makedirs(os.path.join(cfg_paras['save_model_path']))
+            
             torch.save(model.state_dict(), os.path.join(cfg_paras['save_model_path'], cfg_paras['save_model_name']))
             print("Saved Best Model! to", os.path.join(cfg_paras['save_model_path'], cfg_paras['save_model_name']))
         
@@ -468,7 +475,6 @@ def clip_train(cfg_paras):
 
 def main(cfg_paras):
     
-    # CFG = Configurations(cfg_paras)
     dataset_path = cfg_paras['dataset_path']
     df = pd.read_pickle(dataset_path)
     
@@ -513,8 +519,6 @@ def main(cfg_paras):
         
         if valid_loss.avg < best_loss:
             best_loss = valid_loss.avg
-            if not os.path.exists(os.path.join(cfg_paras['save_model_path'], cfg_paras['save_model_name'])):
-                os.makedirs(os.path.join(cfg_paras['save_model_path'], cfg_paras['save_model_name']))
             torch.save(model.state_dict(), os.path.join(cfg_paras['save_model_path'], cfg_paras['save_model_name']))
             print("Saved Best Model! to", os.path.join(cfg_paras['save_model_path'], cfg_paras['save_model_name']))
         
