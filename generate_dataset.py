@@ -120,6 +120,32 @@ def generate_dataset_unit(GSV_idx, GSV_name, GSV_rootpath, answer, profile, img_
     return dataset_unit
 
 
+def get_qa(text_description):
+    answer = [i.split("<\\s> [INST]")[0] for i in text_description.split(" [/INST] ")][1:]
+    question = [text_description.split(" [/INST] ")[0][7:]] + [i.split("<\\s> [INST]")[1] for i in text_description.split(" [/INST] ")[1:-1]]
+    return answer, question
+
+def text_processing(dataset_path, data_type):
+    '''
+    data_type: 'baseline' or 'others'
+    example: text_processing("/data1/cehou_data/LLM_safety/img_text_data/dataset_baseline_baseline_baseline_baseline_1401.pkl", 'baseline')
+    '''
+    dataset = pd.read_pickle(dataset_path)
+    text_description = [dataset[i]['text_description'] for i in range(len(dataset))]
+
+    answer_list = [get_qa(text_description[i])[0] for i in range(len(text_description))]
+    question_list = [get_qa(text_description[i])[1] for i in range(len(text_description))]
+    if data_type == 'baseline':
+        text_description_new = [answer_list[i][1] for i in range(len(text_description))]
+        for i in range(len(dataset)):
+            dataset[i]['text_description_short'] = text_description_new[i]
+    else:
+        print('not implemented')
+
+    with open(dataset_path, 'wb') as f:
+        pickle.dump(dataset, f)
+    return None
+
 if __name__ == '__main__':
     # Load the pre-trained LLM model
 

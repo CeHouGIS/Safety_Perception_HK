@@ -6,6 +6,7 @@ import torch
 from custom_clip_train import clip_train
 sys.path.append('/code/LLM-crime/safety_perception_model/single_model')
 from safety_train_withCLIP import safety_main, eval
+from generate_dataset import text_processing
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -87,8 +88,11 @@ cfg_paras = {
 # 'early_stopping_threshold':20
 # }
 
-# clip_train(cfg_paras)
-# torch.cuda.empty_cache()
+# update data
+text_processing(cfg_paras['dataset_path'], 'baseline')
+
+clip_train(cfg_paras)
+torch.cuda.empty_cache()
 
 # 运行safety_train.py
 print("==============================================")
