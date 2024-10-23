@@ -60,7 +60,7 @@ class ViTClassifier(nn.Module):
         self.dropout = nn.Dropout(0.1)
 
     def forward(self, x):
-        x = x.view(x.size(0), -1)  # Flatten the input
+        # x = x.view(x.size(0), -1)  # Flatten the input
         x = self.relu(self.fc1(x))
         x = self.dropout(x)
         x = self.fc2(x)

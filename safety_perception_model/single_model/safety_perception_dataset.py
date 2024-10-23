@@ -59,7 +59,7 @@ class SafetyPerceptionCLIPDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):
-        print(self.image_feature.shape)
+        # print(self.image_feature.shape)
         image_feature_line = self.image_feature[idx,:]
         
         if self.train_type == 'classification':

@@ -20,7 +20,7 @@ cfg_paras = {
     'dataset_path':"/data1/cehou_data/LLM_safety/img_text_data/dataset_baseline_baseline_baseline_baseline_501.pkl",
     'save_model_path':"/data1/cehou_data/LLM_safety/LLM_model/clip_model",
     'save_model_name':"model_baseline_test.pt",
-    'device':torch.device("cuda:2" if torch.cuda.is_available() else "cpu"),
+    'device':torch.device("cuda:1" if torch.cuda.is_available() else "cpu"),
     'batch_size':20,
     'num_workers':4,
     'head_lr':1e-3,

@@ -27,10 +27,10 @@ from sklearn.metrics import roc_curve, auc
 from sklearn.preprocessing import label_binarize
 from sklearn.metrics import precision_recall_curve, average_precision_score
 
-run = neptune.init_run(
-    project="ce-hou/Safety",
-    api_token="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJmYzFmZTZkYy1iZmY3LTQ1NzUtYTRlNi1iYTgzNjRmNGQyOGUifQ==",
-)  # your credentials
+# run = neptune.init_run(
+#     project="ce-hou/Safety",
+#     api_token="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJmYzFmZTZkYy1iZmY3LTQ1NzUtYTRlNi1iYTgzNjRmNGQyOGUifQ==",
+# )  # your credentials
 
 
 def get_img_feature(paras):
@@ -88,7 +88,7 @@ def train_model(train_loader, valid_loader, paras):
         train_running_loss = 0.0
         for inputs,labels in train_loader:
             inputs = inputs.to(paras['device'])
-            labels = labels.to(paras['device'])
+            labels = labels.to(paras['device']).long()
 
             optimizer.zero_grad()
             outputs = model(inputs)
@@ -115,8 +115,8 @@ def train_model(train_loader, valid_loader, paras):
             print(f"save the best model to {os.path.join(paras['model_save_path'])}.")
 
         print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {train_running_loss/len(train_loader):.4f}, Validation Loss: {val_running_loss/len(valid_loader):.4f}")      
-        run["train/total_loss"].append(train_running_loss/len(train_loader))
-        run["valid/total_loss"].append(val_running_loss/len(valid_loader))
+        # run["train/total_loss"].append(train_running_loss/len(train_loader))
+        # run["valid/total_loss"].append(val_running_loss/len(valid_loader))
         print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {train_running_loss/len(train_loader):.4f}, Validation Loss: {val_running_loss/len(valid_loader):.4f}")
         if count_after_best > paras['early_stopping_threshold']:
             print("Early Stopping!")
@@ -124,7 +124,8 @@ def train_model(train_loader, valid_loader, paras):
         
 def safety_main(paras):
     # 数据加载器
-    img_feature = get_img_feature(paras)
+    img_feature,_ = get_img_feature(paras)
+
     data = pd.read_csv(paras['placepulse_datapath'])
     SVI_namelist = pd.read_pickle(paras['dataset_path'])
     train_len = int(0.7*len(img_feature))
