@@ -80,7 +80,7 @@ def train_model(train_loader, valid_loader, paras):
         optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
     # Training loop
-    num_epochs = 100
+    num_epochs = paras['safety_epochs']
     best_loss = float('inf')
     count_after_best = 0
     for epoch in tqdm(range(num_epochs)):
@@ -96,16 +96,24 @@ def train_model(train_loader, valid_loader, paras):
             loss.backward()
             optimizer.step()
             train_running_loss += loss.item()
+            # print("train_running_loss: ", loss.item())
 
         model.eval()
         val_running_loss = 0.0
+        correct = 0
+        total = 0
         with torch.no_grad():
-            for nputs,labels in valid_loader:
+            for inputs,labels in valid_loader:
                 inputs = inputs.to(paras['device'])
                 labels = labels.to(paras['device'])
                 outputs = model(inputs)
                 loss = criterion(outputs, labels)
                 val_running_loss += loss.item()
+                
+                _, predicted = torch.max(outputs.data, 1)
+                total += labels.size(0)
+                correct += (predicted == labels).sum().item()
+                print(f'Accuracy of the model on the test images: {100 * correct / total:.2f}%')
 
         count_after_best += 1
         if val_running_loss < best_loss:
@@ -113,14 +121,13 @@ def train_model(train_loader, valid_loader, paras):
             count_after_best = 0
             torch.save(model.state_dict(), os.path.join(paras['safety_model_save_path'], f"best_{paras['train_type']}_model.pth"))
             print(f"save the best model to {os.path.join(paras['safety_model_save_path'])}.")
-
-        print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {train_running_loss/len(train_loader):.4f}, Validation Loss: {val_running_loss/len(valid_loader):.4f}")      
+        print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {train_running_loss/train_loader.batch_size:.4f}, Validation Loss: {val_running_loss/valid_loader.batch_size:.4f}")      
         # run["train/total_loss"].append(train_running_loss/len(train_loader))
         # run["valid/total_loss"].append(val_running_loss/len(valid_loader))
-        print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {train_running_loss/len(train_loader):.4f}, Validation Loss: {val_running_loss/len(valid_loader):.4f}")
-        if count_after_best > paras['early_stopping_threshold']:
-            print("Early Stopping!")
-            break
+        print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {train_running_loss/train_loader.batch_size:.4f}, Validation Loss: {val_running_loss/valid_loader.batch_size:.4f}")
+        # if count_after_best > paras['early_stopping_threshold']:
+        #     print("Early Stopping!")
+        #     break
         
 def safety_main(paras):
     # 数据加载器
@@ -142,9 +149,10 @@ def safety_main(paras):
 def eval(paras):
     # overall performance, confusion matrix, ROC curve, precision-recall curve
     # 后面只做一个专门用来validate的dataset
-    img_feature = np.load(os.path.join(paras['save_paths'], 'img_feature.npy'))
+    img_feature = np.load(os.path.join(paras['variables_save_paths'], 'img_feature.npy'))
     data = pd.read_csv(paras['placepulse_datapath'])
-    valid_dataset = SafetyPerceptionCLIPDataset(data, img_feature)
+    SVI_namelist = pd.read_pickle(paras['dataset_path'])
+    valid_dataset = SafetyPerceptionCLIPDataset(data, img_feature, SVI_namelist, paras)
     valid_loader = DataLoader(valid_dataset, batch_size=32, shuffle=False)
     import matplotlib.pyplot as plt
 
@@ -153,9 +161,9 @@ def eval(paras):
         all_preds = []
         all_labels = []
         with torch.no_grad():
-            for batch in valid_loader:
-                inputs = batch['input'].to(device)
-                labels = batch['label'].to(device)
+            for inputs, labels in valid_loader:
+                inputs = inputs.to(device)
+                labels = labels.to(device)
                 outputs = model(inputs)
                 _, preds = torch.max(outputs, 1)
                 all_preds.extend(preds.cpu().numpy())
@@ -165,7 +173,7 @@ def eval(paras):
 
     # Load the best model
     model = ViTClassifier(num_classes=20).to(paras['device'])
-    model.load_state_dict(torch.load(os.path.join(paras['model_save_path'], f"best_{paras['train_type']}_model.pth")))
+    model.load_state_dict(torch.load(os.path.join(paras['safety_model_save_path'], f"best_{paras['train_type']}_model.pth")))
     all_labels, all_preds = evaluate_model(model, valid_loader, paras['device'])
 
     # Compute confusion matrix
@@ -177,8 +185,9 @@ def eval(paras):
     plt.xlabel('Predicted')
     plt.ylabel('True')
     plt.title('Confusion Matrix')
-    plt.savefig(os.path.join(paras['model_save_path'], os.path.join(paras['eval_path'],'test_confusion_matrix.png')))
-
+    plt.savefig(os.path.join(paras['eval_path'],'test_confusion_matrix.png'))
+    plt.close()
+    
     # Binarize the labels for ROC curve
     all_labels_bin = label_binarize(all_labels, classes=list(range(20)))
     all_preds_bin = label_binarize(all_preds, classes=list(range(20)))
@@ -203,8 +212,8 @@ def eval(paras):
     plt.ylabel('True Positive Rate')
     plt.title('Receiver Operating Characteristic (ROC) Curve')
     plt.legend(loc='lower right')
-    plt.savefig(os.path.join(paras['model_save_path'], os.path.join(paras['eval_path'], 'test_roc_curve.png')))
-    
+    plt.savefig(os.path.join(paras['eval_path'], 'test_roc_curve.png'))
+    plt.close()
     # Compute Precision-Recall curve and area for each class
 
     precision = dict()
@@ -223,4 +232,5 @@ def eval(paras):
     plt.ylabel('Precision')
     plt.title('Precision-Recall Curve')
     plt.legend(loc='lower left')
-    plt.savefig(os.path.join(paras['model_save_path'], os.path.join(paras['eval_path'], 'test_precision_recall_curve.png')))
+    plt.savefig(os.path.join(paras['eval_path'], 'test_precision_recall_curve.png'))
+    plt.close()

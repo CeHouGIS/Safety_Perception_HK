@@ -56,6 +56,7 @@ cfg_paras = {
     'placepulse_datapath': "/data_nas/cehou/LLM_safety/PlacePulse2.0/image_perception.csv",
     'eval_path': "/data1/cehou_data/LLM_safety/eval/",
     'train_type': 'classification',
+    'safety_epochs': 100
     }
 
 # cfg_paras_clip = {
