@@ -12,6 +12,9 @@ from PIL import Image
 import torchvision.transforms as transforms
 from safety_perception_dataset import *
 import neptune
+from sklearn.metrics import confusion_matrix
+import matplotlib.pyplot as plt
+import seaborn as sns
 # CUDA_LAUNCH_BLOCKING=1
 
 run = neptune.init_run(
@@ -52,10 +55,11 @@ def train_model(train_loader, valid_loader, paras):
     num_epochs = paras['safety_epochs']
     best_loss = float('inf')
     count_after_best = 0
-    for epoch in tqdm(range(num_epochs)):
+    for epoch in range(num_epochs):
         model.train()
         train_running_loss = 0.0
-        for inputs,labels,image_path in train_loader:
+        tqdm_loader = tqdm(train_loader, total=len(train_loader))
+        for inputs,labels in tqdm_loader:
             inputs = inputs.to(paras['device'])
             labels = labels.to(paras['device']).long()
             # print("inputs: ", inputs)
@@ -69,6 +73,10 @@ def train_model(train_loader, valid_loader, paras):
             optimizer.step()
             train_running_loss += loss.item()
             # print("train_running_loss: ", loss.item())
+            
+            # Update tqdm description with current loss
+            tqdm_loader.set_description(f"Epoch [{epoch+1}/{num_epochs}]")
+            tqdm_loader.set_postfix(loss=train_running_loss)
 
         model.eval()
         val_running_loss = 0.0
@@ -85,6 +93,27 @@ def train_model(train_loader, valid_loader, paras):
                 _, predicted = torch.max(outputs.data, 1)
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
+                # Record predictions and true labels
+                if epoch == 0:
+                    all_preds = predicted.cpu().numpy()
+                    all_labels = labels.cpu().numpy()
+                else:
+                    all_preds = np.concatenate((all_preds, predicted.cpu().numpy()))
+                    all_labels = np.concatenate((all_labels, labels.cpu().numpy()))
+
+                # Calculate confusion matrix
+                # cm = confusion_matrix(labels.cpu(), predicted.cpu())
+                # # Plot confusion matrix
+                # plt.figure(figsize=(10, 8))
+                # sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
+                # plt.xlabel("Predicted")
+                # plt.ylabel("True")
+                # plt.title(f"Confusion Matrix epoch {epoch+1}")
+                # cm_savepath = os.path.join(paras['eval_path'], 'valid_cm')
+                # if not os.path.exists(cm_savepath):
+                #     os.makedirs(cm_savepath)
+                # plt.savefig(os.path.join(cm_savepath, f"confusion_matrix_epoch_{epoch+1}_acc_{correct/total:0.4f}.png"))
+                # plt.close()
                 # print(f'Accuracy of the model on the test images: {100 * correct / total:.2f}%')
 
         count_after_best += 1
@@ -98,6 +127,24 @@ def train_model(train_loader, valid_loader, paras):
         run["train/total_loss"].append(train_running_loss/len(train_loader))
         run["valid/total_loss"].append(val_running_loss/len(valid_loader))
         run["valid/accuracy"].append(correct / total)
+        
+        # Calculate confusion matrix
+        cm = confusion_matrix(all_labels, all_preds)
+        # Plot confusion matrix
+        plt.figure(figsize=(10, 8))
+        sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
+        # plt.xlabel("Predicted")
+        # plt.ylabel("True")
+        sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", cbar=False, 
+                    annot_kws={"size": 12, "weight": "bold", "color": "red"}, 
+                    mask=np.eye(cm.shape[0], dtype=bool))
+        plt.title(f"Confusion Matrix epoch {epoch+1} acc: {correct/total:0.2%}")
+        cm_savepath = os.path.join(paras['eval_path'], 'valid_cm')
+        if not os.path.exists(cm_savepath):
+            os.makedirs(cm_savepath)
+        plt.savefig(os.path.join(cm_savepath, f"confusion_matrix_epoch_{epoch+1}.png"))
+        plt.close()
+        
         print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {train_running_loss/train_loader.batch_size:.4f}, Validation Loss: {val_running_loss/valid_loader.batch_size:.4f}")
         print(f"Accuracy: {100 * correct / total:.2f}%")
         if count_after_best > paras['early_stopping_threshold']:
@@ -114,8 +161,8 @@ image_size = (300,400)
 
 cfg_paras = {
     'debug':False,
-    'dataset_path':"/data2/cehou_data/LLM_safety/img_text_data/dataset_baseline_baseline_baseline_baseline_1401.pkl",
-    'save_model_path':"/data2/cehou_data/LLM_safety/LLM_models/clip_model/test",
+    'dataset_path':"/data2/cehou/LLM_safety/img_text_data/dataset_baseline_baseline_baseline_baseline_1401.pkl",
+    'save_model_path':"/data2/cehou/LLM_safety/LLM_models/clip_model/test",
     'save_model_name':"model_baseline_test.pt",
     'device':torch.device("cuda:3" if torch.cuda.is_available() else "cpu"),
     'batch_size':20,
@@ -144,21 +191,21 @@ cfg_paras = {
     'temperature':0.07,
     'projection_dim':256,
     'dropout':0.1,
-    'early_stopping_threshold':20,
+    'early_stopping_threshold':999,
     
     # safety perception
-    # 'CLIP_model_path': "/data2/cehou_data/LLM_safety/LLM_models/clip_model/test/model_baseline_best.pt",
-    'variables_save_paths': f"/data2/cehou_data/LLM_safety/middle_variables/test",
-    'safety_model_save_path' : f"/data2/cehou_data/LLM_safety/LLM_models/safety_perception_model/only_img/",
+    # 'CLIP_model_path': "/data2/cehou/LLM_safety/LLM_models/clip_model/test/model_baseline_best.pt",
+    'variables_save_paths': f"/data2/cehou/LLM_safety/middle_variables/test",
+    'safety_model_save_path' : f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/only_img/",
     'placepulse_datapath': "/data2/cehou/LLM_safety/PlacePulse2.0/image_perception.csv",
-    'eval_path': "/data2/cehou_data/LLM_safety/eval/test/only_img/",
+    'eval_path': "/data2/cehou/LLM_safety/eval/test/only_img/",
     'train_type': 'classification',
     'safety_epochs': 200,
-    'CNN_lr': 1e-2,
-    
+    'CNN_lr': 1e-4,    
     }
 
 data = pd.read_csv("/data2/cehou/LLM_safety/PlacePulse2.0/image_perception.csv")
+data = data.iloc[:12000]
 data_ls = data[data['Category'] == 'safety']
 transform = get_transforms(image_size)
 split_num = int(len(data_ls) * 0.8)

@@ -17,8 +17,8 @@ warnings.filterwarnings("ignore")
 
 cfg_paras = {
     'debug':False,
-    'dataset_path':"/data2/cehou_data/LLM_safety/img_text_data/dataset_baseline_baseline_baseline_baseline_1401.pkl",
-    'save_model_path':"/data2/cehou_data/LLM_safety/LLM_models/clip_model/test",
+    'dataset_path':"/data2/cehou/LLM_safety/img_text_data/dataset_baseline_baseline_baseline_baseline_1401.pkl",
+    'save_model_path':"/data2/cehou/LLM_safety/LLM_models/clip_model/test",
     'save_model_name':"model_baseline_test.pt",
     'device':torch.device("cuda:1" if torch.cuda.is_available() else "cpu"),
     'batch_size':20,
@@ -50,11 +50,11 @@ cfg_paras = {
     'early_stopping_threshold':20,
     
     # safety perception
-    # 'CLIP_model_path': "/data2/cehou_data/LLM_safety/LLM_models/clip_model/test/model_baseline_best.pt",
-    'variables_save_paths': f"/data2/cehou_data/LLM_safety/middle_variables/test",
-    'safety_model_save_path' : f"/data2/cehou_data/LLM_safety/LLM_models/safety_perception_model/",
+    # 'CLIP_model_path': "/data2/cehou/LLM_safety/LLM_models/clip_model/test/model_baseline_best.pt",
+    'variables_save_paths': f"/data2/cehou/LLM_safety/middle_variables/test",
+    'safety_model_save_path' : f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/",
     'placepulse_datapath': "/data2/cehou/LLM_safety/PlacePulse2.0/image_perception.csv",
-    'eval_path': "/data2/cehou_data/LLM_safety/eval/test/",
+    'eval_path': "/data2/cehou/LLM_safety/eval/test/",
     'train_type': 'classification',
     'safety_epochs': 200,
     'CNN_lr': 1e-2,
@@ -68,8 +68,8 @@ variable_paras = [0.1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6]
 for parameter in variable_paras:
     cfg_paras[specific_paras] = parameter
     print(f"specific_paras: {specific_paras}, parameter: {parameter}")
-    cfg_paras['safety_model_save_path'] = f"/data2/cehou_data/LLM_safety/LLM_models/safety_perception_model/{specific_paras}_{parameter}/"
-    cfg_paras['eval_path'] = f"/data2/cehou_data/LLM_safety/eval/{specific_paras}/{specific_paras}_{parameter}/"
+    cfg_paras['safety_model_save_path'] = f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/{specific_paras}_{parameter}/"
+    cfg_paras['eval_path'] = f"/data2/cehou/LLM_safety/eval/{specific_paras}/{specific_paras}_{parameter}/"
     print("==============================================")
     print("[1/3] Train CLIP model... Running custom_clip_train.py")
     print("==============================================")

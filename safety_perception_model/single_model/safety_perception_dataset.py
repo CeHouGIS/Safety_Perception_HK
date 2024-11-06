@@ -26,11 +26,11 @@ class SafetyPerceptionDataset(Dataset):
         image = np.array(Image.open(f"{self.img_path}/{self.data.iloc[idx]['Image_ID']}.jpg"))
         image = Image.fromarray(image)
         label = self.data.iloc[idx]["Q_Value"]
-        label = label * 100 // 5
+        label = label * 100 // 10
         if self.transform:            
             image = self.transform(image)
 
-        return image, label, image_path
+        return image, label
     
 def get_transforms(resize_size):
     return transforms.Compose(
