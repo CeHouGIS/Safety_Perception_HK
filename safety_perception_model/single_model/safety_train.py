@@ -15,6 +15,8 @@ import neptune
 from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
 import seaborn as sns
+from collections import Counter
+
 # CUDA_LAUNCH_BLOCKING=1
 
 run = neptune.init_run(
@@ -46,9 +48,8 @@ def train_model(train_loader, valid_loader, paras):
         
     elif paras['train_type'] == 'classification':
         model = ViTClassifier(num_classes=20,input_dim=360000).to(paras['device'])
-        # class_weights = torch.tensor([1.0, 2.0, 3.0])  # 根据类别数量设置权重
-        # criterion = nn.CrossEntropyLoss(weight=class_weights)
-        criterion = nn.CrossEntropyLoss()
+        criterion = nn.CrossEntropyLoss(weight=cfg_paras['class_weights'])
+        # criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters(), lr=paras["CNN_lr"])
 
     # Training loop
@@ -191,7 +192,7 @@ cfg_paras = {
     'temperature':0.07,
     'projection_dim':256,
     'dropout':0.1,
-    'early_stopping_threshold':999,
+    'early_stopping_threshold':20,
     
     # safety perception
     # 'CLIP_model_path': "/data2/cehou/LLM_safety/LLM_models/clip_model/test/model_baseline_best.pt",
@@ -201,11 +202,20 @@ cfg_paras = {
     'eval_path': "/data2/cehou/LLM_safety/eval/test/only_img/",
     'train_type': 'classification',
     'safety_epochs': 200,
-    'CNN_lr': 1e-4,    
+    'CNN_lr': 2*1e-7,    
     }
 
+run['paras'] = cfg_paras
 data = pd.read_csv("/data2/cehou/LLM_safety/PlacePulse2.0/image_perception.csv")
-data = data.iloc[:12000]
+data = data[data['Category'] == 'safety'].reset_index(drop=True).iloc[:12000]
+data['label'] = data['Q_Value'] * 100 // 10
+
+# 计算每个类别的样本数量
+label_counts = Counter(data['label'])
+total_samples = len(data)
+class_weights = [label_counts[i] / total_samples for i in label_counts.keys()]
+cfg_paras['class_weights'] = class_weights
+
 data_ls = data[data['Category'] == 'safety']
 transform = get_transforms(image_size)
 split_num = int(len(data_ls) * 0.8)
