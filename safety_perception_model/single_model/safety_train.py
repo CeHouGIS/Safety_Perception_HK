@@ -101,17 +101,17 @@ def train_model(train_loader, valid_loader, paras):
             break
 
 image_size = (300,400)
-# if os.path.exists("/data_nas/cehou/LLM_safety/PlacePulse2.0/train_data_ls.npy"):
+# if os.path.exists("/data2/cehou/LLM_safety/PlacePulse2.0/train_data_ls.npy"):
 #     print("Loading data from file.")
-#     data_ls = np.load("/data_nas/cehou/LLM_safety/PlacePulse2.0/train_data_ls.npy", allow_pickle=True)
+#     data_ls = np.load("/data2/cehou/LLM_safety/PlacePulse2.0/train_data_ls.npy", allow_pickle=True)
 # else:
-#     data = pd.read_csv("/data_nas/cehou/LLM_safety/PlacePulse2.0/image_perception.csv")
+#     data = pd.read_csv("/data2/cehou/LLM_safety/PlacePulse2.0/image_perception.csv")
 #     data_ls = create_dataset_from_df(data, with_nan=False)
 
 cfg_paras = {
     'debug':False,
-    'dataset_path':"/data1/cehou_data/LLM_safety/img_text_data/dataset_baseline_baseline_baseline_baseline_1401.pkl",
-    'save_model_path':"/data1/cehou_data/LLM_safety/LLM_models/clip_model/test",
+    'dataset_path':"/data2/cehou_data/LLM_safety/img_text_data/dataset_baseline_baseline_baseline_baseline_1401.pkl",
+    'save_model_path':"/data2/cehou_data/LLM_safety/LLM_models/clip_model/test",
     'save_model_name':"model_baseline_test.pt",
     'device':torch.device("cuda:1" if torch.cuda.is_available() else "cpu"),
     'batch_size':20,
@@ -143,18 +143,18 @@ cfg_paras = {
     'early_stopping_threshold':20,
     
     # safety perception
-    # 'CLIP_model_path': "/data1/cehou_data/LLM_safety/LLM_models/clip_model/test/model_baseline_best.pt",
-    'variables_save_paths': f"/data1/cehou_data/LLM_safety/middle_variables/test",
-    'safety_model_save_path' : f"/data1/cehou_data/LLM_safety/LLM_models/safety_perception_model/only_img/",
-    'placepulse_datapath': "/data_nas/cehou/LLM_safety/PlacePulse2.0/image_perception.csv",
-    'eval_path': "/data1/cehou_data/LLM_safety/eval/test/only_img/",
+    # 'CLIP_model_path': "/data2/cehou_data/LLM_safety/LLM_models/clip_model/test/model_baseline_best.pt",
+    'variables_save_paths': f"/data2/cehou_data/LLM_safety/middle_variables/test",
+    'safety_model_save_path' : f"/data2/cehou_data/LLM_safety/LLM_models/safety_perception_model/only_img/",
+    'placepulse_datapath': "/data2/cehou/LLM_safety/PlacePulse2.0/image_perception.csv",
+    'eval_path': "/data2/cehou_data/LLM_safety/eval/test/only_img/",
     'train_type': 'classification',
     'safety_epochs': 200,
     'CNN_lr': 1e-2,
     
     }
 
-data = pd.read_csv("/data_nas/cehou/LLM_safety/PlacePulse2.0/image_perception.csv")
+data = pd.read_csv("/data2/cehou/LLM_safety/PlacePulse2.0/image_perception.csv")
 data_ls = data[data['Category'] == 'safety']
 transform = get_transforms(image_size)
 split_num = int(len(data_ls) * 0.8)

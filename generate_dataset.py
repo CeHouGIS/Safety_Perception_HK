@@ -1,5 +1,5 @@
 # generate baseline data
-# python /code/LLM-crime/generate_dataset.py --device-id "cuda:2" --age "baseline" --gender "baseline" --location "baseline" --event "baseline" --img-type "PlacePulse" --start-from 1401
+# python /code/LLM-crime/generate_dataset.py --device-id "cuda:2" --age "baseline" --gender "baseline" --location "baseline" --event "baseline" --img-type "PlacePulse" --start-from 5951 --data-num 10000
 
 # generate specific data
 # python /code/LLM-crime/generate_dataset.py --device-id "cuda:0" --age "30" --gender "male" --location "HongKong" --event "murder" --specific-img True --img-type "PlacePulse" --start-from 351
@@ -45,7 +45,7 @@ parser.add_argument('--sample-size', default=200, type=int,
                     help='event of virtual agent for safety perception')
 parser.add_argument('--max-new-tokens', default=512, type=int,
                     help='event of virtual agent for safety perception')
-parser.add_argument('--data-num', default=2500, type=int,
+parser.add_argument('--data-num', default=5000, type=int,
                     help='event of virtual agent for safety perception')
 
 def count_characters(s):
@@ -213,12 +213,12 @@ if __name__ == '__main__':
         # answer_list.append([idx, answer])
         dataset_list.append(generate_dataset_unit(idx, GSV_metadata.iloc[idx]['panoid'], GSV_rootpath, answer, profile, args.img_type))
         if i % 50 == 0:
-            with open(f'/data1/cehou_data/LLM_safety/img_text_data/dataset_{args.age}_{args.gender}_{args.location}_{args.event}_{args.img_type}_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}_{i}.pkl', 'wb') as f:
+            with open(f'/data1/cehou_data/LLM_safety/img_text_data/dataset_{args.age}_{args.gender}_{args.location}_{args.event}_{args.img_type}_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}_{args.start_from}_{i}.pkl', 'wb') as f:
                 pickle.dump(dataset_list, f)
         # if i % 10 == 0:
         #     with open(f'/data_nas/cehou/LLM_safety/dataset_{args.age}_{args.gender}_{args.location}_{args.event}_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}_{i}.pkl', 'wb') as f:
         #         pickle.dump(dataset_list, f)
         i += 1
-    with open(f'/data1/cehou_data/LLM_safety/img_text_data/dataset_{args.age}_{args.gender}_{args.location}_{args.event}_{args.img_type}_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}_{i}.pkl', 'wb') as f:
+    with open(f'/data1/cehou_data/LLM_safety/img_text_data/dataset_{args.age}_{args.gender}_{args.location}_{args.event}_{args.img_type}_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}_{args.start_from}_{i}.pkl', 'wb') as f:
         pickle.dump(dataset_list, f)
         

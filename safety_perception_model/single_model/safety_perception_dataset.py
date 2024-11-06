@@ -16,7 +16,7 @@ class SafetyPerceptionDataset(Dataset):
         """
         self.data = data
         self.transform = transform
-        self.img_path = "/data_nas/cehou/LLM_safety/PlacePulse2.0/photo_dataset/final_photo_dataset/"
+        self.img_path = "/data2/cehou/LLM_safety/PlacePulse2.0/photo_dataset/final_photo_dataset/"
 
     def __len__(self):
         return len(self.data)
@@ -85,5 +85,5 @@ def create_dataset_from_df(data, with_nan=False, save=True):
                 })
     
     if save:
-        np.save("/data_nas/cehou/LLM_safety/PlacePulse2.0/train_data_ls.npy", data_ls)
+        np.save("/data2/cehou/LLM_safety/PlacePulse2.0/train_data_ls.npy", data_ls)
     return data_ls
