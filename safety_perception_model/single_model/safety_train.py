@@ -12,7 +12,7 @@ from PIL import Image
 import torchvision.transforms as transforms
 from safety_perception_dataset import *
 import neptune
-CUDA_LAUNCH_BLOCKING=1
+# CUDA_LAUNCH_BLOCKING=1
 
 run = neptune.init_run(
     project="ce-hou/Safety",
@@ -29,6 +29,7 @@ def get_transforms(resize_size):
     )    
 
 def train_model(train_loader, valid_loader, paras):
+    print(f'device: {paras["device"]}')
     if paras['train_type'] == 'regression':
         input_dim = 28800
         model_dim = 2048
@@ -54,9 +55,12 @@ def train_model(train_loader, valid_loader, paras):
     for epoch in tqdm(range(num_epochs)):
         model.train()
         train_running_loss = 0.0
-        for inputs,labels in train_loader:
+        for inputs,labels,image_path in train_loader:
             inputs = inputs.to(paras['device'])
             labels = labels.to(paras['device']).long()
+            # print("inputs: ", inputs)
+            # print("labels: ", labels)
+            # print("image_path: ", image_path)
 
             optimizer.zero_grad()
             outputs = model(inputs)
@@ -113,7 +117,7 @@ cfg_paras = {
     'dataset_path':"/data2/cehou_data/LLM_safety/img_text_data/dataset_baseline_baseline_baseline_baseline_1401.pkl",
     'save_model_path':"/data2/cehou_data/LLM_safety/LLM_models/clip_model/test",
     'save_model_name':"model_baseline_test.pt",
-    'device':torch.device("cuda:1" if torch.cuda.is_available() else "cpu"),
+    'device':torch.device("cuda:3" if torch.cuda.is_available() else "cpu"),
     'batch_size':20,
     'num_workers':4,
     'head_lr':1e-3,
@@ -164,7 +168,7 @@ valid_dataset = SafetyPerceptionDataset(data_ls[split_num:], transform=transform
 train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=16, shuffle=True)
 valid_loader = torch.utils.data.DataLoader(valid_dataset, batch_size=16)
 
-device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
-print(f"Using device: {device}")
+# device = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
+# print(f"Using device: {device}")
 
 train_model(train_loader, valid_loader, cfg_paras)
