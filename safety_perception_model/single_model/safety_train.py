@@ -16,6 +16,7 @@ from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
 import seaborn as sns
 from collections import Counter
+from sklearn.metrics import r2_score
 
 # CUDA_LAUNCH_BLOCKING=1
 
@@ -95,16 +96,29 @@ def train_model(train_loader, valid_loader, paras):
                 loss = criterion(outputs, labels)
                 val_running_loss += loss.item()
                 
-                _, predicted = torch.max(outputs.data, 1)
-                total += labels.size(0)
-                correct += (predicted == labels).sum().item()
-                # Record predictions and true labels
-                if epoch == 0:
-                    all_preds = predicted.cpu().numpy()
-                    all_labels = labels.cpu().numpy()
-                else:
-                    all_preds = np.concatenate((all_preds, predicted.cpu().numpy()))
-                    all_labels = np.concatenate((all_labels, labels.cpu().numpy()))
+                if paras['train_type'] == 'classification':
+                    _, predicted = torch.max(outputs.data, 1)
+                    total += labels.size(0)
+                    correct += (predicted == labels).sum().item()
+                    run["valid/accuracy"].append(correct / total)
+                    # Record predictions and true labels
+                    if epoch == 0:
+                        all_preds = predicted.cpu().numpy()
+                        all_labels = labels.cpu().numpy()
+                    else:
+                        all_preds = np.concatenate((all_preds, predicted.cpu().numpy()))
+                        all_labels = np.concatenate((all_labels, labels.cpu().numpy()))
+                        
+                elif paras['train_type'] == 'regression':
+                    r2 = r2_score(outputs, labels)
+                    run["valid/r2_score"].append(r2)
+                    print(f"R2 Score: {r2:.4f}")
+                    if epoch == 0:
+                        all_preds = outputs.cpu().numpy()
+                        all_labels = labels.cpu().numpy()
+                    else:
+                        all_preds = np.concatenate((all_preds, outputs.cpu().numpy()))
+                        all_labels = np.concatenate((all_labels, labels.cpu().numpy()))
 
                 # Calculate confusion matrix
                 # cm = confusion_matrix(labels.cpu(), predicted.cpu())
@@ -131,27 +145,40 @@ def train_model(train_loader, valid_loader, paras):
             print(f"save the best model to {os.path.join(paras['safety_model_save_path'])}.")
         run["train/total_loss"].append(train_running_loss/len(train_loader))
         run["valid/total_loss"].append(val_running_loss/len(valid_loader))
-        run["valid/accuracy"].append(correct / total)
-        
-        # Calculate confusion matrix
-        cm = confusion_matrix(all_labels, all_preds)
-        # Plot confusion matrix
-        plt.figure(figsize=(10, 8))
-        sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
-        # plt.xlabel("Predicted")
-        # plt.ylabel("True")
-        sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", cbar=False, 
-                    annot_kws={"size": 12, "weight": "bold", "color": "red"}, 
-                    mask=np.eye(cm.shape[0], dtype=bool))
-        plt.title(f"Confusion Matrix epoch {epoch+1} acc: {correct/total:0.2%}")
-        cm_savepath = os.path.join(paras['eval_path'], 'valid_cm')
-        if not os.path.exists(cm_savepath):
-            os.makedirs(cm_savepath)
-        plt.savefig(os.path.join(cm_savepath, f"confusion_matrix_epoch_{epoch+1}.png"))
-        plt.close()
         
         print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {train_running_loss/train_loader.batch_size:.4f}, Validation Loss: {val_running_loss/valid_loader.batch_size:.4f}")
-        print(f"Accuracy: {100 * correct / total:.2f}%")
+        if paras['train_type'] == 'classification':
+            print(f"Accuracy: {100 * correct / total:.2f}%")
+            # Calculate confusion matrix
+            cm = confusion_matrix(all_labels, all_preds)
+            # Plot confusion matrix
+            plt.figure(figsize=(10, 8))
+            sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
+            # plt.xlabel("Predicted")
+            # plt.ylabel("True")
+            sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", cbar=False, 
+                        annot_kws={"size": 12, "weight": "bold", "color": "red"}, 
+                        mask=np.eye(cm.shape[0], dtype=bool))
+            plt.title(f"Confusion Matrix epoch {epoch+1} acc: {correct/total:0.2%}")
+            cm_savepath = os.path.join(paras['eval_path'], 'valid_cm')
+            if not os.path.exists(cm_savepath):
+                os.makedirs(cm_savepath)
+            plt.savefig(os.path.join(cm_savepath, f"confusion_matrix_epoch_{epoch+1}.png"))
+            plt.close()
+        elif paras['train_type'] == 'regression':
+            print(f"R2 score: {100 * r2:.2f}%")       
+            # Plot R2 score curve
+            plt.figure(figsize=(10, 8))
+            sns.regplot(x=all_labels, y=all_preds, scatter_kws={'s':10}, line_kws={"color":"red"})
+            plt.xlabel("True Labels")
+            plt.ylabel("Predicted Labels")
+            plt.title(f"Regression Results epoch {epoch+1} R2: {r2:.2f}")
+            regplot_savepath = os.path.join(paras['eval_path'], 'regression_plots')
+            if not os.path.exists(regplot_savepath):
+                os.makedirs(regplot_savepath)
+            plt.savefig(os.path.join(regplot_savepath, f"regression_plot_epoch_{epoch+1}.png"))
+            plt.close()
+                
         if count_after_best > paras['early_stopping_threshold']:
             print("Early Stopping!")
             break
@@ -204,7 +231,7 @@ cfg_paras = {
     'safety_model_save_path' : f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/only_img/",
     'placepulse_datapath': "/data2/cehou/LLM_safety/PlacePulse2.0/image_perception_score.csv",
     'eval_path': "/data2/cehou/LLM_safety/eval/test/only_img/",
-    'train_type': 'classification',
+    'train_type': 'regression',
     'safety_epochs': 50,
     'class_num': 5,
     'CNN_lr': 1e-8,    
