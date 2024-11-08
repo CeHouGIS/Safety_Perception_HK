@@ -53,7 +53,7 @@ cfg_paras = {
     # 'CLIP_model_path': "/data2/cehou/LLM_safety/LLM_models/clip_model/test/model_baseline_best.pt",
     'variables_save_paths': f"/data2/cehou/LLM_safety/middle_variables/test",
     'safety_model_save_path' : f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/",
-    'placepulse_datapath': "/data2/cehou/LLM_safety/PlacePulse2.0/image_perception.csv",
+    'placepulse_datapath': "/data2/cehou/LLM_safety/PlacePulse2.0/image_perception_score.csv",
     'eval_path': "/data2/cehou/LLM_safety/eval/test/",
     'train_type': 'classification',
     'safety_epochs': 200,

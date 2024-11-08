@@ -7,7 +7,7 @@ from PIL import Image
 import torchvision.transforms as transforms
 
 class SafetyPerceptionDataset(Dataset):
-    def __init__(self, data, transform=None):
+    def __init__(self, data, transform=None, paras=None):
         """
         Args:
             data (list or np.array): List or array of data samples.
@@ -17,6 +17,7 @@ class SafetyPerceptionDataset(Dataset):
         self.data = data
         self.transform = transform
         self.img_path = "/data2/cehou/LLM_safety/PlacePulse2.0/photo_dataset/final_photo_dataset/"
+        self.paras = paras
 
     def __len__(self):
         return len(self.data)
@@ -26,7 +27,7 @@ class SafetyPerceptionDataset(Dataset):
         image = np.array(Image.open(f"{self.img_path}/{self.data.iloc[idx]['Image_ID']}.jpg"))
         image = Image.fromarray(image)
         label = self.data.iloc[idx]["Q_Value"]
-        label = label * 100 // 10
+        label = label * 100 // (100 / self.paras['class_num'])
         if self.transform:            
             image = self.transform(image)
 

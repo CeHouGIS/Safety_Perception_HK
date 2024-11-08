@@ -47,9 +47,13 @@ def train_model(train_loader, valid_loader, paras):
         optimizer = optim.Adam(model.parameters(), lr=paras["CNN_lr"])
         
     elif paras['train_type'] == 'classification':
-        model = ViTClassifier(num_classes=20,input_dim=360000).to(paras['device'])
-        criterion = nn.CrossEntropyLoss(weight=cfg_paras['class_weights'])
-        # criterion = nn.CrossEntropyLoss()
+        model = ViTClassifier(num_classes=paras['class_num'],input_dim=360000).to(paras['device'])
+        if paras['weight_on']:
+            class_weights = torch.FloatTensor(paras['class_weights']).to(paras['device'])
+            # print("class_weights: ", class_weights)
+            criterion = nn.CrossEntropyLoss(weight=class_weights)
+        else:
+            criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters(), lr=paras["CNN_lr"])
 
     # Training loop
@@ -198,30 +202,32 @@ cfg_paras = {
     # 'CLIP_model_path': "/data2/cehou/LLM_safety/LLM_models/clip_model/test/model_baseline_best.pt",
     'variables_save_paths': f"/data2/cehou/LLM_safety/middle_variables/test",
     'safety_model_save_path' : f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/only_img/",
-    'placepulse_datapath': "/data2/cehou/LLM_safety/PlacePulse2.0/image_perception.csv",
+    'placepulse_datapath': "/data2/cehou/LLM_safety/PlacePulse2.0/image_perception_score.csv",
     'eval_path': "/data2/cehou/LLM_safety/eval/test/only_img/",
     'train_type': 'classification',
-    'safety_epochs': 200,
-    'CNN_lr': 2*1e-7,    
+    'safety_epochs': 50,
+    'class_num': 5,
+    'CNN_lr': 1e-8,    
+    'weight_on': True
     }
 
-run['paras'] = cfg_paras
 data = pd.read_csv("/data2/cehou/LLM_safety/PlacePulse2.0/image_perception.csv")
 data = data[data['Category'] == 'safety'].reset_index(drop=True).iloc[:12000]
-data['label'] = data['Q_Value'] * 100 // 10
+data['label'] = data['Q_Value'] * 100 // (100 / cfg_paras['class_num'])
 
 # 计算每个类别的样本数量
 label_counts = Counter(data['label'])
 total_samples = len(data)
-class_weights = [label_counts[i] / total_samples for i in label_counts.keys()]
+class_weights = [0 if label_counts[i] == 0 else total_samples / label_counts[i] for i in range(cfg_paras['class_num'])]
 cfg_paras['class_weights'] = class_weights
+run['paras'] = cfg_paras
 
 data_ls = data[data['Category'] == 'safety']
 transform = get_transforms(image_size)
 split_num = int(len(data_ls) * 0.8)
 
-train_dataset = SafetyPerceptionDataset(data_ls[:split_num], transform=transform)
-valid_dataset = SafetyPerceptionDataset(data_ls[split_num:], transform=transform)
+train_dataset = SafetyPerceptionDataset(data_ls[:split_num], transform=transform, paras=cfg_paras)
+valid_dataset = SafetyPerceptionDataset(data_ls[split_num:], transform=transform, paras=cfg_paras)
 train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=16, shuffle=True)
 valid_loader = torch.utils.data.DataLoader(valid_dataset, batch_size=16)
 
