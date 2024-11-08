@@ -26,8 +26,12 @@ class SafetyPerceptionDataset(Dataset):
         image_path = f"{self.img_path}/{self.data.iloc[idx]['Image_ID']}.jpg"
         image = np.array(Image.open(f"{self.img_path}/{self.data.iloc[idx]['Image_ID']}.jpg"))
         image = Image.fromarray(image)
-        label = self.data.iloc[idx]["Q_Value"]
-        label = label * 100 // (100 / self.paras['class_num'])
+        if self.paras['train_type'] == 'classification':
+            label = self.data.iloc[idx]["Score"]
+            label = label * 100 // 5
+        elif self.paras['train_type'] == 'regression':
+            label = self.data.iloc[idx]["Score"]
+            
         if self.transform:            
             image = self.transform(image)
 
@@ -76,14 +80,14 @@ def create_dataset_from_df(data, with_nan=False, save=True):
         for i, (name, group) in tqdm(enumerate(data_group)):
             data_ls.append({
                 "Image_ID": name,
-                "labels": np.array(group['Q_Value'])
+                "labels": np.array(group['Score'])
             })
     else:
         for i, (name, group) in tqdm(enumerate(data_group)):
-            if not np.isnan(group['Q_Value']).any():
+            if not np.isnan(group['Score']).any():
                 data_ls.append({
                     "Image_ID": name,
-                    "labels": np.array(group['Q_Value'])
+                    "labels": np.array(group['Score'])
                 })
     
     if save:

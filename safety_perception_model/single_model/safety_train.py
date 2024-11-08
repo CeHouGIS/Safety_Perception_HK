@@ -37,18 +37,19 @@ def get_transforms(resize_size):
 def train_model(train_loader, valid_loader, paras):
     print(f'device: {paras["device"]}')
     if paras['train_type'] == 'regression':
-        input_dim = 28800
+        input_dim = 3 * paras['size'][0] * paras['size'][1]
         model_dim = 2048
         num_heads = 8  
         num_layers = 6  
-        output_dim = 6  
+        output_dim = 1
 
         model = TransformerRegressionModel(input_dim, model_dim, num_heads, num_layers, output_dim).to(paras['device'])
         criterion = nn.MSELoss()
         optimizer = optim.Adam(model.parameters(), lr=paras["CNN_lr"])
         
     elif paras['train_type'] == 'classification':
-        model = ViTClassifier(num_classes=paras['class_num'],input_dim=360000).to(paras['device'])
+        input_dim = 3 * paras['size'][0] * paras['size'][1]
+        model = ViTClassifier(num_classes=paras['class_num'],input_dim=input_dim).to(paras['device'])
         if paras['weight_on']:
             class_weights = torch.FloatTensor(paras['class_weights']).to(paras['device'])
             # print("class_weights: ", class_weights)
@@ -66,14 +67,14 @@ def train_model(train_loader, valid_loader, paras):
         train_running_loss = 0.0
         tqdm_loader = tqdm(train_loader, total=len(train_loader))
         for inputs,labels in tqdm_loader:
-            inputs = inputs.to(paras['device'])
-            labels = labels.to(paras['device']).long()
-            # print("inputs: ", inputs)
-            # print("labels: ", labels)
-            # print("image_path: ", image_path)
-
+            inputs = inputs.to(paras['device']) #16, 3, 300, 400
+            if paras['train_type'] == 'classification':
+                labels = labels.to(paras['device']).long()
+            elif paras['train_type'] == 'regression':
+                labels = labels.to(paras['device']).float()
+                
             optimizer.zero_grad()
-            outputs = model(inputs)
+            outputs = model(inputs) # 16, 6
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
@@ -197,7 +198,7 @@ cfg_paras = {
     'save_model_path':"/data2/cehou/LLM_safety/LLM_models/clip_model/test",
     'save_model_name':"model_baseline_test.pt",
     'device':torch.device("cuda:3" if torch.cuda.is_available() else "cpu"),
-    'batch_size':20,
+    'batch_size':16,
     'num_workers':4,
     'head_lr':1e-3,
     'image_encoder_lr':1e-4,
@@ -238,9 +239,9 @@ cfg_paras = {
     'weight_on': True
     }
 
-data = pd.read_csv("/data2/cehou/LLM_safety/PlacePulse2.0/image_perception.csv")
-data = data[data['Category'] == 'safety'].reset_index(drop=True).iloc[:12000]
-data['label'] = data['Q_Value'] * 100 // (100 / cfg_paras['class_num'])
+data = pd.read_csv(cfg_paras['placepulse_datapath'])
+data = data[data['Category'] == 'safety'].reset_index(drop=True).iloc[:6000]
+data['label'] = data['Score'] * 100 // (100 / cfg_paras['class_num'])
 
 # 计算每个类别的样本数量
 label_counts = Counter(data['label'])
@@ -255,8 +256,8 @@ split_num = int(len(data_ls) * 0.8)
 
 train_dataset = SafetyPerceptionDataset(data_ls[:split_num], transform=transform, paras=cfg_paras)
 valid_dataset = SafetyPerceptionDataset(data_ls[split_num:], transform=transform, paras=cfg_paras)
-train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=16, shuffle=True)
-valid_loader = torch.utils.data.DataLoader(valid_dataset, batch_size=16)
+train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=cfg_paras['batch_size'], shuffle=True)
+valid_loader = torch.utils.data.DataLoader(valid_dataset, batch_size=cfg_paras['batch_size'])
 
 # device = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
 # print(f"Using device: {device}")
