@@ -22,7 +22,7 @@ import timm
 #         return x
     
 class TransformerRegressionModel(nn.Module):
-    def __init__(self, input_dim, model_dim, num_heads, num_layers, output_dim):
+    def __init__(self, input_dim, model_dim, num_heads, num_layers, output_dim, dropout):
         super(TransformerRegressionModel, self).__init__()
         self.input_projection = nn.Linear(input_dim, model_dim)  # Adjust input_dim to match flattened image size
         self.transformer = nn.Transformer(

@@ -40,10 +40,11 @@ def train_model(train_loader, valid_loader, paras):
         input_dim = 3 * paras['size'][0] * paras['size'][1]
         model_dim = 2048
         num_heads = 8  
-        num_layers = 6  
+        num_layers = 12
+        dropout = paras['dropout']
         output_dim = 1
 
-        model = TransformerRegressionModel(input_dim, model_dim, num_heads, num_layers, output_dim).to(paras['device'])
+        model = TransformerRegressionModel(input_dim, model_dim, num_heads, num_layers, output_dim, dropout).to(paras['device'])
         criterion = nn.MSELoss()
         optimizer = optim.Adam(model.parameters(), lr=paras["CNN_lr"])
         
@@ -75,6 +76,8 @@ def train_model(train_loader, valid_loader, paras):
                 
             optimizer.zero_grad()
             outputs = model(inputs) # 16, 6
+            if outputs.shape[1] == 1:
+                outputs = outputs.squeeze(1)
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
@@ -90,20 +93,18 @@ def train_model(train_loader, valid_loader, paras):
         correct = 0
         total = 0
         with torch.no_grad():
-            for inputs,labels in valid_loader:
-                inputs = inputs.to(paras['device'])
-                labels = labels.to(paras['device']).long()
-                outputs = model(inputs)
-                loss = criterion(outputs, labels)
-                val_running_loss += loss.item()
-                
+            for i, (inputs,labels) in enumerate(valid_loader):
                 if paras['train_type'] == 'classification':
+                    inputs = inputs.to(paras['device'])
+                    labels = labels.to(paras['device']).long()
+                    outputs = model(inputs)
+                    loss = criterion(outputs, labels)
+                    val_running_loss += loss.item()
                     _, predicted = torch.max(outputs.data, 1)
                     total += labels.size(0)
                     correct += (predicted == labels).sum().item()
-                    run["valid/accuracy"].append(correct / total)
                     # Record predictions and true labels
-                    if epoch == 0:
+                    if i == 0:
                         all_preds = predicted.cpu().numpy()
                         all_labels = labels.cpu().numpy()
                     else:
@@ -111,30 +112,18 @@ def train_model(train_loader, valid_loader, paras):
                         all_labels = np.concatenate((all_labels, labels.cpu().numpy()))
                         
                 elif paras['train_type'] == 'regression':
-                    r2 = r2_score(outputs, labels)
-                    run["valid/r2_score"].append(r2)
-                    print(f"R2 Score: {r2:.4f}")
-                    if epoch == 0:
+                    inputs = inputs.to(paras['device'])
+                    labels = labels.to(paras['device']).float()
+                    outputs = model(inputs)
+                    outputs = outputs.squeeze(1)
+                    loss = criterion(outputs, labels)
+                    val_running_loss += loss.item()
+                    if i == 0:
                         all_preds = outputs.cpu().numpy()
                         all_labels = labels.cpu().numpy()
                     else:
                         all_preds = np.concatenate((all_preds, outputs.cpu().numpy()))
                         all_labels = np.concatenate((all_labels, labels.cpu().numpy()))
-
-                # Calculate confusion matrix
-                # cm = confusion_matrix(labels.cpu(), predicted.cpu())
-                # # Plot confusion matrix
-                # plt.figure(figsize=(10, 8))
-                # sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
-                # plt.xlabel("Predicted")
-                # plt.ylabel("True")
-                # plt.title(f"Confusion Matrix epoch {epoch+1}")
-                # cm_savepath = os.path.join(paras['eval_path'], 'valid_cm')
-                # if not os.path.exists(cm_savepath):
-                #     os.makedirs(cm_savepath)
-                # plt.savefig(os.path.join(cm_savepath, f"confusion_matrix_epoch_{epoch+1}_acc_{correct/total:0.4f}.png"))
-                # plt.close()
-                # print(f'Accuracy of the model on the test images: {100 * correct / total:.2f}%')
 
         count_after_best += 1
         if val_running_loss < best_loss:
@@ -149,6 +138,7 @@ def train_model(train_loader, valid_loader, paras):
         
         print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {train_running_loss/train_loader.batch_size:.4f}, Validation Loss: {val_running_loss/valid_loader.batch_size:.4f}")
         if paras['train_type'] == 'classification':
+            run["valid/accuracy"].append(correct / total)
             print(f"Accuracy: {100 * correct / total:.2f}%")
             # Calculate confusion matrix
             cm = confusion_matrix(all_labels, all_preds)
@@ -167,10 +157,14 @@ def train_model(train_loader, valid_loader, paras):
             plt.savefig(os.path.join(cm_savepath, f"confusion_matrix_epoch_{epoch+1}.png"))
             plt.close()
         elif paras['train_type'] == 'regression':
-            print(f"R2 score: {100 * r2:.2f}%")       
+            r2 = r2_score(outputs.cpu().numpy(), labels.cpu().numpy())
+            run["valid/r2_score"].append(r2)
+            print(f"R2 score: {r2:.2f}")       
             # Plot R2 score curve
             plt.figure(figsize=(10, 8))
             sns.regplot(x=all_labels, y=all_preds, scatter_kws={'s':10}, line_kws={"color":"red"})
+            plt.xlim(0, 10)
+            plt.ylim(0, 10)
             plt.xlabel("True Labels")
             plt.ylabel("Predicted Labels")
             plt.title(f"Regression Results epoch {epoch+1} R2: {r2:.2f}")
@@ -184,7 +178,6 @@ def train_model(train_loader, valid_loader, paras):
             print("Early Stopping!")
             break
 
-image_size = (300,400)
 # if os.path.exists("/data2/cehou/LLM_safety/PlacePulse2.0/train_data_ls.npy"):
 #     print("Loading data from file.")
 #     data_ls = np.load("/data2/cehou/LLM_safety/PlacePulse2.0/train_data_ls.npy", allow_pickle=True)
@@ -198,7 +191,7 @@ cfg_paras = {
     'save_model_path':"/data2/cehou/LLM_safety/LLM_models/clip_model/test",
     'save_model_name':"model_baseline_test.pt",
     'device':torch.device("cuda:3" if torch.cuda.is_available() else "cpu"),
-    'batch_size':16,
+    'batch_size':12,
     'num_workers':4,
     'head_lr':1e-3,
     'image_encoder_lr':1e-4,
@@ -211,7 +204,7 @@ cfg_paras = {
     'image_embedding':2048,
     'text_embedding':768,
     'max_length':512,
-    'size':(300, 400),
+    'size':(150, 200),
     
     # models for image and text
     'model_name':'resnet50',
@@ -224,7 +217,7 @@ cfg_paras = {
     'temperature':0.07,
     'projection_dim':256,
     'dropout':0.1,
-    'early_stopping_threshold':20,
+    'early_stopping_threshold':5,
     
     # safety perception
     # 'CLIP_model_path': "/data2/cehou/LLM_safety/LLM_models/clip_model/test/model_baseline_best.pt",
@@ -235,7 +228,7 @@ cfg_paras = {
     'train_type': 'regression',
     'safety_epochs': 50,
     'class_num': 5,
-    'CNN_lr': 1e-8,    
+    'CNN_lr': 1e-9,
     'weight_on': True
     }
 
@@ -251,7 +244,7 @@ cfg_paras['class_weights'] = class_weights
 run['paras'] = cfg_paras
 
 data_ls = data[data['Category'] == 'safety']
-transform = get_transforms(image_size)
+transform = get_transforms(cfg_paras['size'])
 split_num = int(len(data_ls) * 0.8)
 
 train_dataset = SafetyPerceptionDataset(data_ls[:split_num], transform=transform, paras=cfg_paras)
