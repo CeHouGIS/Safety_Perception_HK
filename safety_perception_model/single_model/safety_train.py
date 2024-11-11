@@ -7,7 +7,7 @@ import torch.optim as optim
 import sys
 sys.path.append("/code/LLM-crime/single_model")
 from torch.utils.data import Dataset
-from safety_perception_model.single_model.my_models import TransformerRegressionModel, ViTClassifier, ResNet50Regressor
+from my_models import TransformerRegressionModel, ViTClassifier, ResNet50Regressor
 from PIL import Image
 import torchvision.transforms as transforms
 from safety_perception_dataset import *
@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from collections import Counter
 from sklearn.metrics import r2_score
+import shutil
 
 # CUDA_LAUNCH_BLOCKING=1
 
@@ -43,7 +44,7 @@ def train_model(train_loader, valid_loader, paras):
         num_layers = 6
         dropout = paras['dropout']
         output_dim = 1
-        model = ResNet50Regressor(input_dim, model_dim, num_heads, num_layers, output_dim, dropout).to(paras['device'])
+        model = ResNet50Regressor(output_dim).to(paras['device'])
         # model = TransformerRegressionModel(input_dim, model_dim, num_heads, num_layers, output_dim, dropout).to(paras['device'])
         criterion = nn.MSELoss()
         optimizer = optim.Adam(model.parameters(), lr=paras["CNN_lr"])
@@ -157,7 +158,7 @@ def train_model(train_loader, valid_loader, paras):
             plt.savefig(os.path.join(cm_savepath, f"confusion_matrix_epoch_{epoch+1}.png"))
             plt.close()
         elif paras['train_type'] == 'regression':
-            r2 = r2_score(outputs.cpu().numpy(), labels.cpu().numpy())
+            r2 = r2_score(all_preds, all_labels)
             run["valid/r2_score"].append(r2)
             print(f"R2 score: {r2:.2f}")       
             # Plot R2 score curve
@@ -190,8 +191,8 @@ cfg_paras = {
     'dataset_path':"/data2/cehou/LLM_safety/img_text_data/dataset_baseline_baseline_baseline_baseline_1401.pkl",
     'save_model_path':"/data2/cehou/LLM_safety/LLM_models/clip_model/test",
     'save_model_name':"model_baseline_test.pt",
-    'device':torch.device("cuda:3" if torch.cuda.is_available() else "cpu"),
-    'batch_size':12,
+    'device':torch.device("cuda:1" if torch.cuda.is_available() else "cpu"),
+    'batch_size':256,
     'num_workers':4,
     'head_lr':1e-3,
     'image_encoder_lr':1e-4,
@@ -226,14 +227,14 @@ cfg_paras = {
     'placepulse_datapath': "/data2/cehou/LLM_safety/PlacePulse2.0/image_perception_score.csv",
     'eval_path': "/data2/cehou/LLM_safety/eval/test/only_img/",
     'train_type': 'regression',
-    'safety_epochs': 50,
+    'safety_epochs': 200,
     'class_num': 5,
-    'CNN_lr': 1e-9,
+    'CNN_lr': 5*1e-5,
     'weight_on': True
     }
 
 data = pd.read_csv(cfg_paras['placepulse_datapath'])
-data = data[data['Category'] == 'safety'].reset_index(drop=True).iloc[:6000]
+data = data[data['Category'] == 'safety'].reset_index(drop=True).iloc[:]
 data['label'] = data['Score'] * 100 // (100 / cfg_paras['class_num'])
 
 # 计算每个类别的样本数量
@@ -245,7 +246,7 @@ run['paras'] = cfg_paras
 
 data_ls = data[data['Category'] == 'safety']
 transform = get_transforms(cfg_paras['size'])
-split_num = int(len(data_ls) * 0.8)
+split_num = int(len(data_ls) * 0.7)
 
 train_dataset = SafetyPerceptionDataset(data_ls[:split_num], transform=transform, paras=cfg_paras)
 valid_dataset = SafetyPerceptionDataset(data_ls[split_num:], transform=transform, paras=cfg_paras)
