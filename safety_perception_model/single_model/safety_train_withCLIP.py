@@ -4,7 +4,6 @@ import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from models import TransformerRegressionModel
 import sys
 from safety_perception_dataset import SafetyPerceptionCLIPDataset
 import numpy as np
@@ -12,7 +11,7 @@ import pandas as pd
 from tqdm import tqdm
 import neptune
 sys.path.append("/code/LLM-crime/safety_perception_model/single_model")
-from models import TransformerRegressionModel, ViTClassifier
+from safety_perception_model.single_model.my_models import TransformerRegressionModel, ViTClassifier
 sys.path.append("/code/LLM-crime")
 from custom_clip_train import CLIPModel, CLIPDataset, build_loaders, make_prediction
 from transformers import DistilBertModel, DistilBertConfig, DistilBertTokenizer
@@ -61,11 +60,12 @@ def get_img_feature(paras):
 def train_model(train_loader, valid_loader, paras):
     if paras['train_type'] == 'regression':
         input_dim = 3
-        model_dim = 2048
+        model_dim = 512
         num_heads = 8  
         num_layers = 6  
         output_dim = 6  
 
+        # model = TransformerRegressionModel(input_dim, model_dim, num_heads, num_layers, output_dim).to(paras['device'])
         model = TransformerRegressionModel(input_dim, model_dim, num_heads, num_layers, output_dim).to(paras['device'])
         criterion = nn.MSELoss()
         optimizer = optim.Adam(model.parameters(), lr=paras["CNN_lr"])

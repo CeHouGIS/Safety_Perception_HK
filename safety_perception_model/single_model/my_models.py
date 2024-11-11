@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import timm
+from torchvision import models, transforms
 
 # class TransformerRegressionModel(nn.Module):
 #     def __init__(self, input_dim, model_dim, num_heads, num_layers, output_dim):
@@ -50,6 +51,15 @@ class TransformerRegressionModel(nn.Module):
         # print("==============================")
         return x
     
+class ResNet50Regressor(nn.Module):
+    def __init__(self, output_dim):
+        super(ResNet50Regressor, self).__init__()
+        self.model = models.resnet50(pretrained=True)
+        self.model.fc = nn.Linear(self.model.fc.in_features, output_dim)
+
+    def forward(self, x):
+        return self.model(x)
+
     
 class ViTClassifier(nn.Module):
     def __init__(self, num_classes=20, input_dim=256):

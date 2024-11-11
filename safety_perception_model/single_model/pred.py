@@ -8,7 +8,7 @@ from tqdm import tqdm
 warnings.filterwarnings("ignore")
 import sys
 sys.path.append("/code/LLM-crime/safety_perception_model/single_model")
-from models import TransformerRegressionModel
+from safety_perception_model.single_model.my_models import TransformerRegressionModel
 sys.path.append("/code/LLM-crime")
 from custom_clip_train import CLIPModel, CLIPDataset, build_loaders, make_prediction
 from transformers import DistilBertModel, DistilBertConfig, DistilBertTokenizer

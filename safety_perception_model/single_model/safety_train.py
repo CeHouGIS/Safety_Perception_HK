@@ -7,7 +7,7 @@ import torch.optim as optim
 import sys
 sys.path.append("/code/LLM-crime/single_model")
 from torch.utils.data import Dataset
-from models import TransformerRegressionModel, ViTClassifier
+from safety_perception_model.single_model.my_models import TransformerRegressionModel, ViTClassifier, ResNet50Regressor
 from PIL import Image
 import torchvision.transforms as transforms
 from safety_perception_dataset import *
@@ -38,13 +38,13 @@ def train_model(train_loader, valid_loader, paras):
     print(f'device: {paras["device"]}')
     if paras['train_type'] == 'regression':
         input_dim = 3 * paras['size'][0] * paras['size'][1]
-        model_dim = 2048
+        model_dim = 512
         num_heads = 8  
-        num_layers = 12
+        num_layers = 6
         dropout = paras['dropout']
         output_dim = 1
-
-        model = TransformerRegressionModel(input_dim, model_dim, num_heads, num_layers, output_dim, dropout).to(paras['device'])
+        model = ResNet50Regressor(input_dim, model_dim, num_heads, num_layers, output_dim, dropout).to(paras['device'])
+        # model = TransformerRegressionModel(input_dim, model_dim, num_heads, num_layers, output_dim, dropout).to(paras['device'])
         criterion = nn.MSELoss()
         optimizer = optim.Adam(model.parameters(), lr=paras["CNN_lr"])
         
@@ -204,7 +204,7 @@ cfg_paras = {
     'image_embedding':2048,
     'text_embedding':768,
     'max_length':512,
-    'size':(150, 200),
+    'size':(224,224),
     
     # models for image and text
     'model_name':'resnet50',
