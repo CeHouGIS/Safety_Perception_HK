@@ -27,8 +27,8 @@ class SafetyPerceptionDataset(Dataset):
         image = np.array(Image.open(f"{self.img_path}/{self.data.iloc[idx]['Image_ID']}.jpg"))
         image = Image.fromarray(image)
         if self.paras['train_type'] == 'classification':
-            label = self.data.iloc[idx]["Score"]
-            label = label * 100 // 5
+            label = self.data.iloc[idx]["label"]
+            # label = label * 100 // 5
         elif self.paras['train_type'] == 'regression':
             label = self.data.iloc[idx]["Score"]
             

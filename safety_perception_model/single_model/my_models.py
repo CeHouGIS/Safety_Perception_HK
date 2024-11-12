@@ -51,14 +51,16 @@ class TransformerRegressionModel(nn.Module):
         # print("==============================")
         return x
     
-class ResNet50Regressor(nn.Module):
+class ResNet50Model(nn.Module):
     def __init__(self, output_dim):
-        super(ResNet50Regressor, self).__init__()
+        super(ResNet50Model, self).__init__()
         self.model = models.resnet50(pretrained=True)
         self.model.fc = nn.Linear(self.model.fc.in_features, output_dim)
 
     def forward(self, x):
         return self.model(x)
+    
+
 
     
 class ViTClassifier(nn.Module):
