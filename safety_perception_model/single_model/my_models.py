@@ -54,7 +54,7 @@ class TransformerRegressionModel(nn.Module):
 class ResNet50Regressor(nn.Module):
     def __init__(self, output_dim):
         super(ResNet50Regressor, self).__init__()
-        self.model = models.resnet50(pretrained=False)
+        self.model = models.resnet50(pretrained=True)
         self.model.fc = nn.Linear(self.model.fc.in_features, output_dim)
 
     def forward(self, x):

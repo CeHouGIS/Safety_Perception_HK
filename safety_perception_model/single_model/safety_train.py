@@ -6,7 +6,6 @@ import torch.nn as nn
 import torch.optim as optim
 import sys
 sys.path.append("/code/LLM-crime/single_model")
-from torch.utils.data import Dataset
 from my_models import TransformerRegressionModel, ViTClassifier, ResNet50Regressor
 from PIL import Image
 import torchvision.transforms as transforms
@@ -164,8 +163,8 @@ def train_model(train_loader, valid_loader, paras):
             # Plot R2 score curve
             plt.figure(figsize=(10, 8))
             sns.regplot(x=all_labels, y=all_preds, scatter_kws={'s':10}, line_kws={"color":"red"})
-            plt.xlim(0, 10)
-            plt.ylim(0, 10)
+            plt.xlim(-0.5,1.5)
+            plt.ylim(-0.5,1.5)
             plt.xlabel("True Labels")
             plt.ylabel("Predicted Labels")
             plt.title(f"Regression Results epoch {epoch+1} R2: {r2:.2f}")
@@ -229,20 +228,22 @@ cfg_paras = {
     'train_type': 'regression',
     'safety_epochs': 200,
     'class_num': 5,
-    'CNN_lr': 5*1e-5,
+    'CNN_lr': 1*1e-6,
     'weight_on': True
     }
 
 data = pd.read_csv(cfg_paras['placepulse_datapath'])
 data = data[data['Category'] == 'safety'].reset_index(drop=True).iloc[:]
-data['label'] = data['Score'] * 100 // (100 / cfg_paras['class_num'])
 
 # 计算每个类别的样本数量
+data['label'] = data['Score'] * 100 // (100 / cfg_paras['class_num'])
 label_counts = Counter(data['label'])
 total_samples = len(data)
 class_weights = [0 if label_counts[i] == 0 else total_samples / label_counts[i] for i in range(cfg_paras['class_num'])]
 cfg_paras['class_weights'] = class_weights
 run['paras'] = cfg_paras
+
+data['Score'] = (data['Score'] - data['Score'].min()) / (data['Score'].max() - data['Score'].min())
 
 data_ls = data[data['Category'] == 'safety']
 transform = get_transforms(cfg_paras['size'])
