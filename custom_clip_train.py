@@ -16,7 +16,7 @@ from tqdm.autonotebook import tqdm
 from transformers import DistilBertModel, DistilBertConfig, DistilBertTokenizer
 from PIL import Image
 import torchvision.transforms as transforms
-from ViT import VisionTransformer
+from ViT import vit_base_patch16
 import neptune
 import argparse
 import warnings
@@ -285,7 +285,7 @@ class CLIPModel(nn.Module):
         # self.image_encoder = ImageEncoder(cfg_paras)
         # self.image_encoder = VisionTransformer(img_size=224, patch_size=16, in_channels=3, embed_dim=768, 
         #                   num_heads=8, mlp_dim=2048, num_layers=12, num_classes=1000, dropout=0.1)
-        self.image_encoder = VisionTransformer(img_size=112)
+        self.image_encoder = vit_base_patch16()
         self.text_encoder = TextEncoder(cfg_paras)
         self.image_projection = ProjectionHead(cfg_paras, data_type='image')
         self.text_projection = ProjectionHead(cfg_paras, data_type='text')
