@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 import sys
 sys.path.append("/code/LLM-crime/single_model")
-from my_models import TransformerRegressionModel, ViTClassifier, ResNet50Model
+from my_models import TransformerRegressionModel, ResNet50Model, ViTClassifier
 from PIL import Image
 import torchvision.transforms as transforms
 from safety_perception_dataset import *
@@ -52,7 +52,8 @@ def train_model(train_loader, valid_loader, paras):
     elif paras['train_type'] == 'classification':
         input_dim = 3 * paras['size'][0] * paras['size'][1]
         output_dim = paras['class_num']
-        model = ResNet50Model(output_dim).to(paras['device'])
+        # model = ResNet50Model(output_dim).to(paras['device'])
+        model = ViTClassifier(output_dim).to(paras['device'])
         # print(model)
         # model = ViTClassifier(num_classes=paras['class_num'],input_dim=input_dim).to(paras['device'])
         if paras['weight_on']:
@@ -150,7 +151,6 @@ def train_model(train_loader, valid_loader, paras):
             cm = confusion_matrix(all_labels, all_preds)
             # Plot confusion matrix
             plt.figure(figsize=(10, 8))
-            sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
             # plt.xlabel("Predicted")
             # plt.ylabel("True")
             sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", cbar=False, 
@@ -197,7 +197,7 @@ cfg_paras = {
     'save_model_path':"/data2/cehou/LLM_safety/LLM_models/clip_model/test",
     'save_model_name':"model_baseline_test.pt",
     'device':torch.device("cuda:2" if torch.cuda.is_available() else "cpu"),
-    'batch_size':256,
+    'batch_size':128,
     'num_workers':4,
     'head_lr':1e-3,
     'image_encoder_lr':1e-4,
@@ -234,7 +234,7 @@ cfg_paras = {
     'train_type': 'classification',
     'safety_epochs': 200,
     'class_num': 2,
-    'CNN_lr': 1*1e-6,
+    'CNN_lr': 5*1e-7,
     'weight_on': False
     }
 
@@ -252,7 +252,7 @@ run['paras'] = cfg_paras
 data_ls = data[data['label'] != 0]
 data_ls.loc[data_ls[data_ls['label'] == -1].index, 'label'] = 0
 transform = get_transforms(cfg_paras['size'])
-split_num = int(len(data_ls) * 0.7)
+split_num = int(len(data_ls) * 0.8)
 
 train_dataset = SafetyPerceptionDataset(data_ls[:split_num], transform=transform, paras=cfg_paras)
 valid_dataset = SafetyPerceptionDataset(data_ls[split_num:], transform=transform, paras=cfg_paras)
