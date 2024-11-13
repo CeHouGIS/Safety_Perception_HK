@@ -22,7 +22,7 @@ cfg_paras = {
     'save_model_path':"/data2/cehou/LLM_safety/LLM_models/clip_model/test",
     'save_model_name':"model_baseline_test.pt",
     'device':torch.device("cuda:2" if torch.cuda.is_available() else "cpu"),
-    'batch_size':32,
+    'batch_size':128,
     'num_workers':4,
     'head_lr':1e-3,
     'image_encoder_lr':1e-4,
@@ -32,10 +32,10 @@ cfg_paras = {
     'patience':1,
     'factor':0.8,
     'epochs':400,
-    'image_embedding':3*224*224,
+    'image_embedding':3*112*112,
     'text_embedding':768,
     'max_length':512,
-    'size':(224,224),
+    'size':(112,112),
     
     # models for image and text
     'model_name':'resnet50',
@@ -64,7 +64,7 @@ cfg_paras = {
 
 
 specific_paras = 'CNN_lr'
-variable_paras = [0.1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6]
+variable_paras = [1e-4]
 
 for parameter in variable_paras:
     cfg_paras[specific_paras] = parameter

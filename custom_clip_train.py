@@ -16,6 +16,7 @@ from tqdm.autonotebook import tqdm
 from transformers import DistilBertModel, DistilBertConfig, DistilBertTokenizer
 from PIL import Image
 import torchvision.transforms as transforms
+from ViT import VisionTransformer
 import neptune
 import argparse
 import warnings
@@ -215,19 +216,14 @@ class ImageEncoder(nn.Module):
         super().__init__()
         
         self.model = timm.create_model('vit_base_patch16_224', pretrained=True)
-        # self.model.head = nn.Linear(self.model.head.in_features, 2048)  # 二分类，输出一个值
+        self.model.patch_embed.proj = nn.Conv2d(3, 768, kernel_size=(16, 16), stride=(8, 8))  # Adjust for 112x112 input
         self.feature_extractor = nn.Sequential(*list(self.model.children())[:-1])
         
-        # self.model = timm.create_model(
-        #     cfg_paras['model_name'], cfg_paras['pretrained'], num_classes=0, global_pool="avg"
-        # )
         for p in self.model.parameters():
             p.requires_grad = cfg_paras['trainable']
 
     def forward(self, x):
-        # return self.model(x)
         features = self.feature_extractor(x)
-        # 展平特征为一维
         return features.view(features.size(0), -1)
     
     
@@ -286,7 +282,10 @@ class CLIPModel(nn.Module):
         cfg_paras
     ):
         super().__init__()
-        self.image_encoder = ImageEncoder(cfg_paras)
+        # self.image_encoder = ImageEncoder(cfg_paras)
+        # self.image_encoder = VisionTransformer(img_size=224, patch_size=16, in_channels=3, embed_dim=768, 
+        #                   num_heads=8, mlp_dim=2048, num_layers=12, num_classes=1000, dropout=0.1)
+        self.image_encoder = VisionTransformer(img_size=112)
         self.text_encoder = TextEncoder(cfg_paras)
         self.image_projection = ProjectionHead(cfg_paras, data_type='image')
         self.text_projection = ProjectionHead(cfg_paras, data_type='text')
@@ -422,11 +421,12 @@ def clip_train(cfg_paras):
     tokenizer = DistilBertTokenizer.from_pretrained(cfg_paras['text_tokenizer'])
     
     train_num = int(len(df) * 0.7)
-    train_loader = build_loaders(df[:train_num], tokenizer, mode="train", cfg_paras=cfg_paras)
-    valid_loader = build_loaders(df[train_num:], tokenizer, mode="valid", cfg_paras=cfg_paras)
+    train_loader = build_loaders(df.iloc[:train_num], tokenizer, mode="train", cfg_paras=cfg_paras)
+    valid_loader = build_loaders(df.iloc[train_num:].reset_index(drop=True), tokenizer, mode="valid", cfg_paras=cfg_paras)
 
     print("use device: ", cfg_paras['device'])
     model = CLIPModel(cfg_paras).to(cfg_paras['device'])
+    print(model)
     params = [
         {"params": model.image_encoder.parameters(), "lr": cfg_paras['image_encoder_lr']},
         {"params": model.text_encoder.parameters(), "lr": cfg_paras['text_encoder_lr']},
@@ -480,14 +480,14 @@ def clip_train(cfg_paras):
 def main(cfg_paras):
     
     dataset_path = cfg_paras['dataset_path']
-    df = pd.read_pickle(dataset_path)
+    df = pd.read_pickle(dataset_path).reset_index(drop=True)
     
     # train_df, valid_df = make_train_valid_dfs()
     tokenizer = DistilBertTokenizer.from_pretrained(cfg_paras['text_tokenizer'])
     
     train_num = int(len(df) * 0.7)
-    train_loader = build_loaders(df[:train_num], tokenizer, mode="train", cfg_paras=cfg_paras)
-    valid_loader = build_loaders(df[train_num:], tokenizer, mode="valid", cfg_paras=cfg_paras)
+    train_loader = build_loaders(df.iloc[:train_num], tokenizer, mode="train", cfg_paras=cfg_paras)
+    valid_loader = build_loaders(df.iloc[train_num:], tokenizer, mode="valid", cfg_paras=cfg_paras)
 
     print("use device: ", cfg_paras['device_step1'])
     model = CLIPModel(cfg_paras).to(cfg_paras['device'])
