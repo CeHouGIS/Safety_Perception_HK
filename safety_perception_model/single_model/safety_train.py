@@ -154,8 +154,8 @@ def train_model(train_loader, valid_loader, paras):
             # plt.xlabel("Predicted")
             # plt.ylabel("True")
             sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", cbar=False, 
-                        annot_kws={"size": 12, "weight": "bold", "color": "red"}, 
-                        mask=np.eye(cm.shape[0], dtype=bool))
+                        annot_kws={"size": 12, "weight": "bold", "color": "red"} 
+                        )
             plt.title(f"Confusion Matrix epoch {epoch+1} acc: {correct/total:0.2%}")
             cm_savepath = os.path.join(paras['eval_path'], 'valid_cm')
             if not os.path.exists(cm_savepath):
@@ -197,7 +197,7 @@ cfg_paras = {
     'save_model_path':"/data2/cehou/LLM_safety/LLM_models/clip_model/test",
     'save_model_name':"model_baseline_test.pt",
     'device':torch.device("cuda:2" if torch.cuda.is_available() else "cpu"),
-    'batch_size':128,
+    'batch_size':192,
     'num_workers':4,
     'head_lr':1e-3,
     'image_encoder_lr':1e-4,
@@ -234,7 +234,7 @@ cfg_paras = {
     'train_type': 'classification',
     'safety_epochs': 200,
     'class_num': 2,
-    'CNN_lr': 5*1e-7,
+    'CNN_lr': 1*1e-7,
     'weight_on': False
     }
 

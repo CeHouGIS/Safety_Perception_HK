@@ -17,11 +17,12 @@ warnings.filterwarnings("ignore")
 
 cfg_paras = {
     'debug':False,
-    'dataset_path':"/data2/cehou/LLM_safety/img_text_data/dataset_baseline_baseline_baseline_baseline_1401.pkl",
+    # 'dataset_path':"/data2/cehou/LLM_safety/img_text_data/dataset_baseline_baseline_baseline_baseline_1401.pkl",
+    'dataset_path':'/data2/cehou/LLM_safety/img_text_data/baseline/tidyed/dataset_baseline_baseline_baseline_baseline_7850_withlabel.csv',
     'save_model_path':"/data2/cehou/LLM_safety/LLM_models/clip_model/test",
     'save_model_name':"model_baseline_test.pt",
-    'device':torch.device("cuda:1" if torch.cuda.is_available() else "cpu"),
-    'batch_size':20,
+    'device':torch.device("cuda:2" if torch.cuda.is_available() else "cpu"),
+    'batch_size':32,
     'num_workers':4,
     'head_lr':1e-3,
     'image_encoder_lr':1e-4,
@@ -31,10 +32,10 @@ cfg_paras = {
     'patience':1,
     'factor':0.8,
     'epochs':400,
-    'image_embedding':2048,
+    'image_embedding':3*224*224,
     'text_embedding':768,
     'max_length':512,
-    'size':(300, 400),
+    'size':(224,224),
     
     # models for image and text
     'model_name':'resnet50',
@@ -47,7 +48,7 @@ cfg_paras = {
     'temperature':0.07,
     'projection_dim':256,
     'dropout':0.1,
-    'early_stopping_threshold':20,
+    'early_stopping_threshold':5,
     
     # safety perception
     # 'CLIP_model_path': "/data2/cehou/LLM_safety/LLM_models/clip_model/test/model_baseline_best.pt",
@@ -77,8 +78,8 @@ for parameter in variable_paras:
     # update data
     # text_processing(cfg_paras['dataset_path'], 'baseline')
 
-    # clip_train(cfg_paras)
-    # torch.cuda.empty_cache()
+    clip_train(cfg_paras)
+    torch.cuda.empty_cache()
 
     # 运行safety_train.py
     print("==============================================")

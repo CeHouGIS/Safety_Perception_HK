@@ -128,17 +128,17 @@ def get_lr(optimizer):
         return param_group["lr"]
     
 class CLIPDataset(torch.utils.data.Dataset):
-    def __init__(self, image_filenames, captions, tokenizer, transforms, cfg_paras):
+    def __init__(self, dataframe, tokenizer, transforms, cfg_paras):
         """
         image_filenames and cpations must have the same length; so, if there are
         multiple captions for each image, the image_filenames must have repetitive
         file names 
         """
 
-        self.image_filenames = image_filenames
-        self.captions = list(captions)
+        self.image_filenames = dataframe['GSV_path']
+        self.captions = list(dataframe['text_description_short'])   
         self.encoded_captions = tokenizer(
-            list(captions), padding=True, truncation=True, max_length=cfg_paras['max_length']
+            self.captions, padding=True, truncation=True, max_length=cfg_paras['max_length']
         )
         self.transforms = transforms
         self.img_type = cfg_paras['img_type']
@@ -147,13 +147,12 @@ class CLIPDataset(torch.utils.data.Dataset):
             key: torch.tensor(values[idx])
             for key, values in self.encoded_captions.items()
         }
-
         image = self.get_img(idx)
         # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         image = self.transforms(image)
         item['image'] = torch.tensor(image).permute(0, 1, 2).float()
-        item['caption'] = self.captions[idx]
-
+        item['text_description_short'] = self.captions[idx]
+        
         return item
 
     def get_img(self,idx):
@@ -214,14 +213,22 @@ class ImageEncoder(nn.Module):
         cfg_paras
     ):
         super().__init__()
-        self.model = timm.create_model(
-            cfg_paras['model_name'], cfg_paras['pretrained'], num_classes=0, global_pool="avg"
-        )
+        
+        self.model = timm.create_model('vit_base_patch16_224', pretrained=True)
+        # self.model.head = nn.Linear(self.model.head.in_features, 2048)  # 二分类，输出一个值
+        self.feature_extractor = nn.Sequential(*list(self.model.children())[:-1])
+        
+        # self.model = timm.create_model(
+        #     cfg_paras['model_name'], cfg_paras['pretrained'], num_classes=0, global_pool="avg"
+        # )
         for p in self.model.parameters():
             p.requires_grad = cfg_paras['trainable']
 
     def forward(self, x):
-        return self.model(x)
+        # return self.model(x)
+        features = self.feature_extractor(x)
+        # 展平特征为一维
+        return features.view(features.size(0), -1)
     
     
 class TextEncoder(nn.Module):
@@ -334,8 +341,7 @@ def make_train_valid_dfs(cfg_paras):
 def build_loaders(dataframe, tokenizer, mode, cfg_paras):
     transforms = get_transforms(mode=mode, cfg_paras=cfg_paras)
     dataset = CLIPDataset(
-        [i['GSV_path'] for i in dataframe], 
-        [i['text_description_short'] for i in dataframe], 
+        dataframe=dataframe,
         tokenizer=tokenizer,
         transforms=transforms,
         cfg_paras=cfg_paras
@@ -353,7 +359,7 @@ def train_epoch(model, train_loader, optimizer, lr_scheduler, step, cfg_paras):
     loss_meter = AvgMeter()
     tqdm_object = tqdm(train_loader, total=len(train_loader))
     for batch in tqdm_object:
-        batch = {k: v.to(cfg_paras['device']) for k, v in batch.items() if k != "caption"}
+        batch = {k: v.to(cfg_paras['device']) for k, v in batch.items() if k != "text_description_short"}
         loss = model(batch)
         optimizer.zero_grad()
         loss.backward()
@@ -372,7 +378,7 @@ def valid_epoch(model, valid_loader, cfg_paras):
 
     tqdm_object = tqdm(valid_loader, total=len(valid_loader))
     for batch in tqdm_object:
-        batch = {k: v.to(cfg_paras['device']) for k, v in batch.items() if k != "caption"}
+        batch = {k: v.to(cfg_paras['device']) for k, v in batch.items() if k != "text_description_short"}
         loss = model(batch)
 
         count = batch["image"].size(0)
@@ -409,11 +415,9 @@ def make_prediction(model, test_loader, cfg_paras):
 # define train function, similar to main()
 def clip_train(cfg_paras):
     # CFG = Configurations(cfg_paras)
-    df = pd.read_pickle(cfg_paras['dataset_path'])
-
-    # create paths
-
-    
+    # df = pd.read_pickle(cfg_paras['dataset_path'])
+    df = pd.read_csv(cfg_paras['dataset_path'])
+        # create paths
     # train_df, valid_df = make_train_valid_dfs()
     tokenizer = DistilBertTokenizer.from_pretrained(cfg_paras['text_tokenizer'])
     

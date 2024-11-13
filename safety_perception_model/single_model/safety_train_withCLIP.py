@@ -11,7 +11,7 @@ import pandas as pd
 from tqdm import tqdm
 import neptune
 sys.path.append("/code/LLM-crime/safety_perception_model/single_model")
-from safety_perception_model.single_model.my_models import TransformerRegressionModel, ViTClassifier
+from my_models import TransformerRegressionModel, ViTClassifier
 sys.path.append("/code/LLM-crime")
 from custom_clip_train import CLIPModel, CLIPDataset, build_loaders, make_prediction
 from transformers import DistilBertModel, DistilBertConfig, DistilBertTokenizer
@@ -71,8 +71,8 @@ def train_model(train_loader, valid_loader, paras):
         optimizer = optim.Adam(model.parameters(), lr=paras["CNN_lr"])
         
     elif paras['train_type'] == 'classification':
-        model = ViTClassifier(num_classes=20).to(paras['device'])
-        class_weights = torch.tensor([1.0, 2.0, 3.0])  # 根据类别数量设置权重
+        model = ViTClassifier(output_dim=2).to(paras['device'])
+        # class_weights = torch.tensor([1.0, 2.0, 3.0])  # 根据类别数量设置权重
         # criterion = nn.CrossEntropyLoss(weight=class_weights)
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters(), lr=paras["CNN_lr"])
