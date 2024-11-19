@@ -31,6 +31,12 @@ class VisionTransformer(timm.models.vision_transformer.VisionTransformer):
 
             del self.norm  # remove the original norm
 
+        # Remove the last three layers
+        self.norm = nn.Identity()
+        self.fc_norm = nn.Identity()
+        self.head_drop = nn.Identity()
+        self.head = nn.Identity()
+
     def forward_features(self, x):
         B = x.shape[0]
         x = self.patch_embed(x)

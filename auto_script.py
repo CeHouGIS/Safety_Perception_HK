@@ -18,11 +18,11 @@ warnings.filterwarnings("ignore")
 cfg_paras = {
     'debug':False,
     # 'dataset_path':"/data2/cehou/LLM_safety/img_text_data/dataset_baseline_baseline_baseline_baseline_1401.pkl",
-    'dataset_path':'/data2/cehou/LLM_safety/img_text_data/baseline/tidyed/dataset_baseline_baseline_baseline_baseline_7850_withlabel.csv',
+    'dataset_path':'/data2/cehou/LLM_safety/img_text_data/baseline/tidyed/dataset_baseline_baseline_baseline_baseline_9030_withlabel.csv',
     'save_model_path':"/data2/cehou/LLM_safety/LLM_models/clip_model/test",
     'save_model_name':"model_baseline_test.pt",
-    'device':torch.device("cuda:2" if torch.cuda.is_available() else "cpu"),
-    'batch_size':128,
+    'device':torch.device("cuda:3" if torch.cuda.is_available() else "cpu"),
+    'batch_size':60,
     'num_workers':4,
     'head_lr':1e-3,
     'image_encoder_lr':1e-4,
@@ -32,7 +32,7 @@ cfg_paras = {
     'patience':1,
     'factor':0.8,
     'epochs':400,
-    'image_embedding':3*112*112,
+    'image_embedding':768,
     'text_embedding':768,
     'max_length':512,
     'size':(112,112),
@@ -78,7 +78,7 @@ for parameter in variable_paras:
     # update data
     # text_processing(cfg_paras['dataset_path'], 'baseline')
 
-    clip_train(cfg_paras)
+    # clip_train(cfg_paras)
     torch.cuda.empty_cache()
 
     # 运行safety_train.py

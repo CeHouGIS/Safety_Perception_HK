@@ -394,7 +394,7 @@ def make_prediction(model, test_loader, cfg_paras):
     text_embeddings_list = []
     with torch.no_grad():
         for batch in tqdm(test_loader, total=len(test_loader)):
-            batch = {k: v.to(cfg_paras['device']) for k, v in batch.items() if k != "caption"}
+            batch = {k: v.to(cfg_paras['device']) for k, v in batch.items() if k != "text_description_short"}
             image_features = model.image_encoder(batch["image"])
             text_features = model.text_encoder(
                 input_ids=batch["input_ids"], attention_mask=batch["attention_mask"]

@@ -1,5 +1,5 @@
 # generate baseline data
-# python /code/LLM-crime/generate_dataset.py --device-id "cuda:2" --age "baseline" --gender "baseline" --location "baseline" --event "baseline" --img-type "PlacePulse" --start-from 5951 --data-num 10000
+# python /code/LLM-crime/generate_dataset.py --device-id "cuda:3" --age "baseline" --gender "baseline" --location "baseline" --event "baseline" --img-type "PlacePulse" --start-from 0 --data-num 10000
 
 # generate specific data
 # python /code/LLM-crime/generate_dataset.py --device-id "cuda:0" --age "30" --gender "male" --location "HongKong" --event "murder" --specific-img True --img-type "PlacePulse" --start-from 351
@@ -163,8 +163,8 @@ if __name__ == '__main__':
         GSV_metadata_path = '/data_nas/GoogleSV/metadata/China/HongKong/pano_2024-08-17 13:11:09.125553_23512.p' # Hong Kong SVI
         GSV_metadata = pd.read_pickle(GSV_metadata_path)
     elif args.img_type == 'PlacePulse':
-        GSV_rootpath = "/data_nas/cehou/LLM_safety/PlacePulse2.0/photo_dataset/final_photo_dataset"
-        GSV_metadata_path = '/data_nas/cehou/LLM_safety/PlacePulse2.0/train_data.csv' # Place Pulse SVI
+        GSV_rootpath = "/data2/cehou/LLM_safety/PlacePulse2.0/photo_dataset/final_photo_dataset"
+        GSV_metadata_path = '/data2/cehou/LLM_safety/PlacePulse2.0/train_data_need_label.csv' # Place Pulse SVI
         GSV_metadata = pd.read_csv(GSV_metadata_path) 
         
     if args.specific_img == False:  
@@ -213,12 +213,12 @@ if __name__ == '__main__':
         # answer_list.append([idx, answer])
         dataset_list.append(generate_dataset_unit(idx, GSV_metadata.iloc[idx]['panoid'], GSV_rootpath, answer, profile, args.img_type))
         if i % 50 == 0:
-            with open(f'/data1/cehou_data/LLM_safety/img_text_data/dataset_{args.age}_{args.gender}_{args.location}_{args.event}_{args.img_type}_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}_{args.start_from}_{i}.pkl', 'wb') as f:
+            with open(f'/data2/cehou/LLM_safety/img_text_data/dataset_{args.age}_{args.gender}_{args.location}_{args.event}_{args.img_type}_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}_{args.start_from}_{i}.pkl', 'wb') as f:
                 pickle.dump(dataset_list, f)
         # if i % 10 == 0:
         #     with open(f'/data_nas/cehou/LLM_safety/dataset_{args.age}_{args.gender}_{args.location}_{args.event}_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}_{i}.pkl', 'wb') as f:
         #         pickle.dump(dataset_list, f)
         i += 1
-    with open(f'/data1/cehou_data/LLM_safety/img_text_data/dataset_{args.age}_{args.gender}_{args.location}_{args.event}_{args.img_type}_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}_{args.start_from}_{i}.pkl', 'wb') as f:
+    with open(f'/data2/cehou/LLM_safety/img_text_data/dataset_{args.age}_{args.gender}_{args.location}_{args.event}_{args.img_type}_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}_{args.start_from}_{i}.pkl', 'wb') as f:
         pickle.dump(dataset_list, f)
         

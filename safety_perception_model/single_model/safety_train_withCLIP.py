@@ -40,7 +40,7 @@ def get_img_feature(paras):
     img_encoder_paras = torch.load(CLIP_model_path)
     img_encoder = CLIPModel(paras)
     img_encoder.load_state_dict(img_encoder_paras)
-    baseline_data = pd.read_pickle(paras['dataset_path'])
+    baseline_data = pd.read_csv(paras['dataset_path'])
     # print("baseline_data: ", len(baseline_data))
     tokenizer = DistilBertTokenizer.from_pretrained(text_tokenizer)
 
@@ -134,8 +134,8 @@ def safety_main(paras):
     # 数据加载器
     img_feature,_ = get_img_feature(paras)
     data = pd.read_csv(paras['placepulse_datapath'])
-    SVI_namelist = pd.read_pickle(paras['dataset_path'])
-    namelist = pd.DataFrame([SVI_namelist[i]['GSV_name'] for i in range(len(SVI_namelist))],columns=['Image_ID'])
+    SVI_namelist = pd.read_csv(paras['dataset_path'])
+    namelist = pd.DataFrame([SVI_namelist.loc[i,'GSV_name'] for i in range(len(SVI_namelist))],columns=['Image_ID'])
     data = namelist.merge(data[data['Category'] == 'safety'], on='Image_ID')
 
     train_len = int(0.7*len(img_feature))
