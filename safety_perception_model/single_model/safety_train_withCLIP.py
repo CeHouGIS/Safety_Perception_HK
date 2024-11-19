@@ -69,7 +69,7 @@ def train_model(train_loader, valid_loader, paras):
         
     elif paras['train_type'] == 'classification':
         # model = FeatureViTClassifier(output_dim=2).to(paras['device'])
-        model = FeatureResNet50(input_dim=256, num_classes=output_dim)
+        model = FeatureResNet50(input_dim=256, num_classes=2).to(paras['device'])
         # class_weights = torch.tensor([1.0, 2.0, 3.0])  # 根据类别数量设置权重
         # criterion = nn.CrossEntropyLoss(weight=class_weights)
         criterion = nn.CrossEntropyLoss()
@@ -140,10 +140,11 @@ def safety_main(paras):
     data_nonezero_idx = data[data['label'] != 0].index
     img_feature_nonezero = img_feature[data_nonezero_idx,:]
     data_nonezero = data_nonezero.reset_index(drop=True)
+    data_nonezero.loc[data_nonezero[data_nonezero['label'] == -1].index,'label'] = 0
 
     train_len = int(0.7*len(img_feature_nonezero))
-    train_dataset = SafetyPerceptionCLIPDataset(data[:train_len], img_feature[:train_len], paras)
-    valid_dataset = SafetyPerceptionCLIPDataset(data[train_len:], img_feature[train_len:], paras)
+    train_dataset = SafetyPerceptionCLIPDataset(data_nonezero[:train_len], img_feature_nonezero[:train_len], paras)
+    valid_dataset = SafetyPerceptionCLIPDataset(data_nonezero[train_len:], img_feature_nonezero[train_len:], paras)
     train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
     valid_loader = DataLoader(valid_dataset, batch_size=16, shuffle=False)
 
