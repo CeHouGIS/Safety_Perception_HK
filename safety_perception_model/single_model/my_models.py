@@ -3,24 +3,6 @@ import torch.nn as nn
 import timm
 from torchvision import models, transforms
 
-# class TransformerRegressionModel(nn.Module):
-#     def __init__(self, input_dim, model_dim, num_heads, num_layers, output_dim):
-#         super(TransformerRegressionModel, self).__init__()
-#         self.encoder_layer = nn.TransformerEncoderLayer(d_model=model_dim, nhead=num_heads, batch_first=True)
-#         self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=num_layers)
-#         self.fc = nn.Linear(model_dim, output_dim)
-#         self.input_projection = nn.Linear(input_dim, model_dim)
-
-#     def forward(self, x):
-#         print("==============================")
-#         x = self.input_projection(x)
-#         print(x.shape)
-#         x = self.transformer_encoder(x)
-#         print(x.shape)
-#         x = self.fc(x)
-#         print(x.shape)
-#         print("==============================")
-#         return x
     
 class TransformerRegressionModel(nn.Module):
     def __init__(self, input_dim, model_dim, num_heads, num_layers, output_dim, dropout):
@@ -59,9 +41,38 @@ class ResNet50Model(nn.Module):
 
     def forward(self, x):
         return self.model(x)
+
+class FeatureResNet50(nn.Module):
+    def __init__(self, input_dim=256, num_classes=2):
+        super(FeatureResNet50, self).__init__()
+        self.input_dim = input_dim
+        self.num_classes = num_classes
+        
+        # Load the pre-trained ResNet50 model
+        self.resnet50 = models.resnet50(pretrained=True)
+        # Modify the first convolutional layer to accept 1-channel input
+        self.resnet50.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        
+        # Modify the fully connected layer to match the input dimension and number of classes
+        self.resnet50.fc = nn.Linear(self.resnet50.fc.in_features, self.num_classes)
+    def forward(self, x):
+        # Reshape the input to match the expected input shape of ResNet50
+        x = x.view(-1, 1, 16, 16)  # Assuming input_dim=256, reshape to (batch_size, 1, 16, 16)
+        x = self.resnet50(x)
+        return x
+
     
 
 class ViTClassifier(nn.Module):
+    def __init__(self, output_dim):
+        super(ViTClassifier, self).__init__()
+        self.model = timm.create_model('vit_base_patch16_224', pretrained=True)
+        self.model.head = nn.Linear(self.model.head.in_features, output_dim)  # 二分类，输出一个值
+
+    def forward(self, x):
+        return self.model(x)
+
+class FeatureViTClassifier(nn.Module):
     def __init__(self, output_dim):
         super(ViTClassifier, self).__init__()
         self.model = timm.create_model('vit_base_patch16_224', pretrained=True)

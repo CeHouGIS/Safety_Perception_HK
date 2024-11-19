@@ -11,7 +11,7 @@ import pandas as pd
 from tqdm import tqdm
 import neptune
 sys.path.append("/code/LLM-crime/safety_perception_model/single_model")
-from my_models import TransformerRegressionModel, ViTClassifier
+from my_models import TransformerRegressionModel, FeatureViTClassifier, FeatureResNet50
 sys.path.append("/code/LLM-crime")
 from custom_clip_train import CLIPModel, CLIPDataset, build_loaders, make_prediction
 from transformers import DistilBertModel, DistilBertConfig, DistilBertTokenizer
@@ -59,19 +59,17 @@ def get_img_feature(paras):
 # 训练函数
 def train_model(train_loader, valid_loader, paras):
     if paras['train_type'] == 'regression':
-        input_dim = 3
-        model_dim = 512
-        num_heads = 8  
-        num_layers = 6  
-        output_dim = 6  
+        output_dim = 2 
 
         # model = TransformerRegressionModel(input_dim, model_dim, num_heads, num_layers, output_dim).to(paras['device'])
-        model = TransformerRegressionModel(input_dim, model_dim, num_heads, num_layers, output_dim).to(paras['device'])
+        # model = FeatureViTClassifier(output_dim).to(paras['device'])
+        model = FeatureResNet50(input_dim=256, num_classes=output_dim)
         criterion = nn.MSELoss()
         optimizer = optim.Adam(model.parameters(), lr=paras["CNN_lr"])
         
     elif paras['train_type'] == 'classification':
-        model = ViTClassifier(output_dim=2).to(paras['device'])
+        # model = FeatureViTClassifier(output_dim=2).to(paras['device'])
+        model = FeatureResNet50(input_dim=256, num_classes=output_dim)
         # class_weights = torch.tensor([1.0, 2.0, 3.0])  # 根据类别数量设置权重
         # criterion = nn.CrossEntropyLoss(weight=class_weights)
         criterion = nn.CrossEntropyLoss()
@@ -133,12 +131,17 @@ def train_model(train_loader, valid_loader, paras):
 def safety_main(paras):
     # 数据加载器
     img_feature,_ = get_img_feature(paras)
+    print(img_feature.shape)
     data = pd.read_csv(paras['placepulse_datapath'])
     SVI_namelist = pd.read_csv(paras['dataset_path'])
-    namelist = pd.DataFrame([SVI_namelist.loc[i,'GSV_name'] for i in range(len(SVI_namelist))],columns=['Image_ID'])
+    namelist = pd.DataFrame([SVI_namelist.loc[i,'Image_ID'] for i in range(len(SVI_namelist))],columns=['Image_ID'])
     data = namelist.merge(data[data['Category'] == 'safety'], on='Image_ID')
+    data_nonezero = data[data['label'] != 0]
+    data_nonezero_idx = data[data['label'] != 0].index
+    img_feature_nonezero = img_feature[data_nonezero_idx,:]
+    data_nonezero = data_nonezero.reset_index(drop=True)
 
-    train_len = int(0.7*len(img_feature))
+    train_len = int(0.7*len(img_feature_nonezero))
     train_dataset = SafetyPerceptionCLIPDataset(data[:train_len], img_feature[:train_len], paras)
     valid_dataset = SafetyPerceptionCLIPDataset(data[train_len:], img_feature[train_len:], paras)
     train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
@@ -154,7 +157,7 @@ def eval(paras):
     img_feature = np.load(os.path.join(paras['variables_save_paths'], 'img_feature.npy'))  
     data = pd.read_csv(paras['placepulse_datapath'])
     SVI_namelist = pd.read_pickle(paras['dataset_path'])
-    namelist = pd.DataFrame([SVI_namelist[i]['GSV_name'] for i in range(len(SVI_namelist))],columns=['Image_ID'])
+    namelist = pd.DataFrame([SVI_namelist[i]['Image_ID'] for i in range(len(SVI_namelist))],columns=['Image_ID'])
     data = namelist.merge(data[data['Category'] == 'safety'], on='Image_ID')
 
     valid_dataset = SafetyPerceptionCLIPDataset(data, img_feature, paras)
@@ -177,7 +180,7 @@ def eval(paras):
         return all_labels, all_preds
 
     # Load the best model
-    model = ViTClassifier(num_classes=20).to(paras['device'])
+    model = FeatureViTClassifier(output_dim=2).to(paras['device'])
     model.load_state_dict(torch.load(os.path.join(paras['safety_model_save_path'], f"best_{paras['train_type']}_model.pth")))
     all_labels, all_preds = evaluate_model(model, valid_loader, paras['device'])
 
