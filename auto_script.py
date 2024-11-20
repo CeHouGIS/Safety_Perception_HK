@@ -58,13 +58,14 @@ cfg_paras = {
     'eval_path': "/data2/cehou/LLM_safety/eval/test/",
     'train_type': 'classification',
     'safety_epochs': 200,
+    'batch_size_safety': 256,
     'CNN_lr': 1e-2,
     
     }
 
 
 specific_paras = 'CNN_lr'
-variable_paras = [1e-4]
+variable_paras = [1e-9]
 
 for parameter in variable_paras:
     cfg_paras[specific_paras] = parameter
@@ -78,7 +79,7 @@ for parameter in variable_paras:
     # update data
     # text_processing(cfg_paras['dataset_path'], 'baseline')
 
-    # clip_train(cfg_paras)
+    clip_train(cfg_paras)
     torch.cuda.empty_cache()
 
     # 运行safety_train.py
