@@ -65,7 +65,7 @@ cfg_paras = {
 
 
 specific_paras = 'CNN_lr'
-variable_paras = [1e-9]
+variable_paras = [5*1e-9]
 
 for parameter in variable_paras:
     cfg_paras[specific_paras] = parameter
