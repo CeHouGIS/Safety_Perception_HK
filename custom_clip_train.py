@@ -312,7 +312,7 @@ class CLIPModel(nn.Module):
         )
         texts_loss = cross_entropy(logits, targets, reduction='none')
         images_loss = cross_entropy(logits.T, targets.T, reduction='none')
-        loss =  0.75*images_loss + 0.25*texts_loss # shape: (batch_size)
+        loss =  0.5*images_loss + 0.5*texts_loss # shape: (batch_size)
         return loss.mean()
 
 class CLIPFinetune(CLIPModel):

@@ -26,7 +26,8 @@ cfg_paras = {
     'batch_size':60,
     'num_workers':4,
     'head_lr':1e-3,
-    'image_encoder_lr':1e-4,
+    'temperature':0.05,
+    'image_encoder_lr':1e-5,
     'text_encoder_lr':1e-5,
     'weight_decay':1e-3,
     'img_type':'PlacePulse',
@@ -46,7 +47,6 @@ cfg_paras = {
     'trainable':True,
     
     # deep learning model parameters
-    'temperature':0.07,
     'projection_dim':256,
     'dropout':0.1,
     'early_stopping_threshold':5,
@@ -66,7 +66,7 @@ cfg_paras = {
 
 
 specific_paras = 'CNN_lr'
-variable_paras = [5*1e-9]
+variable_paras = [1*1e-5]
 
 for parameter in variable_paras:
     cfg_paras[specific_paras] = parameter
@@ -90,9 +90,9 @@ for parameter in variable_paras:
     print("==============================================")
     
     # finetune CLIP model
-    cfg_paras['CLIP_train_type'] = 'finetune'
-    clip_train(cfg_paras)
-    torch.cuda.empty_cache()
+    # cfg_paras['CLIP_train_type'] = 'finetune'
+    # clip_train(cfg_paras)
+    # torch.cuda.empty_cache()
 
     # 运行safety_train.py
     print("==============================================")
@@ -100,8 +100,8 @@ for parameter in variable_paras:
     print("==============================================")
 
 
-    safety_main(cfg_paras)
-    torch.cuda.empty_cache()
+    # safety_main(cfg_paras)
+    # torch.cuda.empty_cache()
 
     # 评估结果，存入csv文件
     # overall performance, confusion matrix, ROC curve, precision-recall curve
@@ -109,4 +109,4 @@ for parameter in variable_paras:
     print("[4/4] Evaluate the models...")
     print("==============================================")
 
-    eval(cfg_paras)
+    # eval(cfg_paras)

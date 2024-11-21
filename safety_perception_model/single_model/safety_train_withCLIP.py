@@ -187,7 +187,8 @@ def eval(paras):
         return all_labels, all_preds
 
     # Load the best model
-    model = FeatureResNet50(input_dim=256, num_classes=2).to(paras['device'])
+    # model = FeatureResNet50(input_dim=256, num_classes=2).to(paras['device'])
+    model = LinearProbe(input_dim=256, num_classes=2).to(paras['device'])
     model.load_state_dict(torch.load(os.path.join(paras['safety_model_save_path'], f"best_{paras['train_type']}_model.pth")))
     all_labels, all_preds = evaluate_model(model, valid_loader, paras['device'])
 

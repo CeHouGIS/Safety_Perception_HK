@@ -62,9 +62,9 @@ class FeatureResNet50(nn.Module):
         return x
 
 class LinearProbe(nn.Module):
-    def __init__(self, feature_dim, num_classes):
+    def __init__(self, input_dim, num_classes):
         super(LinearProbe, self).__init__()
-        self.linear = nn.Linear(feature_dim, num_classes)
+        self.linear = nn.Linear(input_dim, num_classes)
 
     def forward(self, x):
         return self.linear(x)
