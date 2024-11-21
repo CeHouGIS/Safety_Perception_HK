@@ -141,6 +141,7 @@ class CLIPDataset(torch.utils.data.Dataset):
         self.encoded_captions = tokenizer(
             self.captions, padding=True, truncation=True, max_length=cfg_paras['max_length']
         )
+        self.labels = dataframe['label']
         self.transforms = transforms
         self.img_type = cfg_paras['img_type']
     def __getitem__(self, idx):
@@ -153,6 +154,7 @@ class CLIPDataset(torch.utils.data.Dataset):
         image = self.transforms(image)
         item['image'] = torch.tensor(image).permute(0, 1, 2).float()
         item['text_description_short'] = self.captions[idx]
+        item['label'] = self.labels[idx]
         
         return item
 
@@ -313,6 +315,34 @@ class CLIPModel(nn.Module):
         loss =  0.75*images_loss + 0.25*texts_loss # shape: (batch_size)
         return loss.mean()
 
+class CLIPFinetune(CLIPModel):
+    def __init__(self, cfg_paras):
+        super().__init__(cfg_paras)
+        self.finetune_projection = nn.Linear(cfg_paras['projection_dim'], cfg_paras['num_classes'])
+
+    def forward(self, batch):
+        image_features = self.image_encoder(batch["image"])
+        text_features = self.text_encoder(
+            input_ids=batch["input_ids"], attention_mask=batch["attention_mask"]
+        )
+        image_embeddings = self.image_projection(image_features)
+        text_embeddings = self.text_projection(text_features)
+
+        logits = (text_embeddings @ image_embeddings.T) / self.temperature
+        images_similarity = image_embeddings @ image_embeddings.T
+        texts_similarity = text_embeddings @ text_embeddings.T
+        targets = F.softmax(
+            (images_similarity + texts_similarity) / 2 * self.temperature, dim=-1
+        )
+        texts_loss = cross_entropy(logits, targets, reduction='none')
+        images_loss = cross_entropy(logits.T, targets.T, reduction='none')
+        loss = 0.75 * images_loss + 0.25 * texts_loss
+
+        finetune_logits = self.finetune_projection(image_embeddings)
+        finetune_loss = F.cross_entropy(finetune_logits, batch["labels"])
+
+        return loss.mean() + finetune_loss
+
 
 def cross_entropy(preds, targets, reduction='none'):
     log_softmax = nn.LogSoftmax(dim=-1)
@@ -371,6 +401,22 @@ def train_epoch(model, train_loader, optimizer, lr_scheduler, step, cfg_paras):
         tqdm_object.set_postfix(train_loss=loss_meter.avg, lr=get_lr(optimizer))
     return loss_meter
 
+def finetune_epoch(model, train_loader, optimizer, lr_scheduler, step, cfg_paras):
+    loss_meter = AvgMeter()
+    tqdm_object = tqdm(train_loader, total=len(train_loader))
+    for batch in tqdm_object:
+        # batch = {k: v.to(cfg_paras['device']) for k, v, labels in batch.items() if k != "text_description_short"}
+        loss = model(batch)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        if step == "batch":
+            lr_scheduler.step()
+
+        count = batch["image"].size(0)
+        loss_meter.update(loss.item(), count)
+        tqdm_object.set_postfix(train_loss=loss_meter.avg, lr=get_lr(optimizer))
+    return loss_meter
 
 def valid_epoch(model, valid_loader, cfg_paras):
     loss_meter = AvgMeter()
@@ -426,6 +472,7 @@ def clip_train(cfg_paras):
 
     print("use device: ", cfg_paras['device'])
     model = CLIPModel(cfg_paras).to(cfg_paras['device'])
+        
     print(model)
     params = [
         {"params": model.image_encoder.parameters(), "lr": cfg_paras['image_encoder_lr']},
@@ -476,6 +523,77 @@ def clip_train(cfg_paras):
             print("Early Stopping!")
             break
 
+def clip_finetune(cfg_paras):
+    
+    CLIP_model_path = os.path.join(cfg_paras['save_model_path'], cfg_paras['save_model_name'])
+    save_paths = cfg_paras['variables_save_paths']
+    if not os.path.exists(save_paths):
+        os.makedirs(save_paths)
+    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {cfg_paras['device']}")
+  
+    df = pd.read_csv(cfg_paras['dataset_path'])
+    tokenizer = DistilBertTokenizer.from_pretrained(cfg_paras['text_tokenizer'])
+    img_encoder_paras = torch.load(CLIP_model_path)
+    img_encoder = CLIPModel(cfg_paras)
+    img_encoder.load_state_dict(img_encoder_paras)    
+    
+    train_num = int(len(df) * 0.7)
+    train_loader = build_loaders(df.iloc[:train_num], tokenizer, mode="train", cfg_paras=cfg_paras)
+    valid_loader = build_loaders(df.iloc[train_num:].reset_index(drop=True), tokenizer, mode="valid", cfg_paras=cfg_paras)
+
+    print("use device: ", cfg_paras['device'])
+    model = CLIPFinetune(cfg_paras).to(cfg_paras['device'])
+        
+    print(model)
+    params = [
+        {"params": model.image_encoder.parameters(), "lr": cfg_paras['image_encoder_lr']},
+        {"params": model.text_encoder.parameters(), "lr": cfg_paras['text_encoder_lr']},
+        {"params": itertools.chain(
+            model.image_projection.parameters(), model.text_projection.parameters()
+        ), "lr": cfg_paras['head_lr'], "weight_decay": cfg_paras['weight_decay']}
+    ]
+    
+    run = neptune.init_run(
+        project="ce-hou/LLM-CRIME",
+        api_token="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJmYzFmZTZkYy1iZmY3LTQ1NzUtYTRlNi1iYTgzNjRmNGQyOGUifQ==",
+    )  # your credentials
+    run["parameters"] = cfg_paras
+        
+    optimizer = torch.optim.AdamW(params, weight_decay=0.)
+    lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode="min", patience=cfg_paras['patience'], factor=cfg_paras['factor']
+    )
+    step = "epoch"
+
+    best_loss = float('inf')
+    count_after_best = 0
+    for epoch in range(cfg_paras['epochs']):
+        print(f"Epoch: {epoch + 1}")
+        model.train()
+        train_loss = train_epoch(model, train_loader, optimizer, lr_scheduler, step, cfg_paras)
+        run["train/train_loss"].append(train_loss.avg)
+        model.eval()
+        with torch.no_grad():
+            valid_loss = valid_epoch(model, valid_loader, cfg_paras)
+        
+        if valid_loss.avg < best_loss:
+            best_loss = valid_loss.avg
+            count_after_best = 0
+            
+            if not os.path.exists(os.path.join(cfg_paras['save_model_path'])):
+                os.makedirs(os.path.join(cfg_paras['save_model_path']))
+            
+            torch.save(model.state_dict(), os.path.join(cfg_paras['save_model_path'], cfg_paras['save_model_name']))
+            print("Saved Best Model! to", os.path.join(cfg_paras['save_model_path'], cfg_paras['save_model_name']))
+        
+        lr_scheduler.step(valid_loss.avg)
+        run["train/valid_loss"].append(valid_loss.avg)
+        
+        count_after_best += 1
+        if count_after_best > cfg_paras['early_stopping_threshold']:
+            print("Early Stopping!")
+            break
 
 def main(cfg_paras):
     

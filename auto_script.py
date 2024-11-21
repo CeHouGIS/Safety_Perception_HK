@@ -22,6 +22,7 @@ cfg_paras = {
     'save_model_path':"/data2/cehou/LLM_safety/LLM_models/clip_model/test",
     'save_model_name':"model_baseline_test.pt",
     'device':torch.device("cuda:3" if torch.cuda.is_available() else "cpu"),
+    'CLIP_train_type': 'train', # train, finetune
     'batch_size':60,
     'num_workers':4,
     'head_lr':1e-3,
@@ -73,7 +74,7 @@ for parameter in variable_paras:
     cfg_paras['safety_model_save_path'] = f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/{specific_paras}_{parameter}/"
     cfg_paras['eval_path'] = f"/data2/cehou/LLM_safety/eval/{specific_paras}/{specific_paras}_{parameter}/"
     print("==============================================")
-    print("[1/3] Train CLIP model... Running custom_clip_train.py")
+    print("[1/4] Train CLIP model... Running custom_clip_train.py")
     print("==============================================")
 
     # update data
@@ -81,10 +82,21 @@ for parameter in variable_paras:
 
     clip_train(cfg_paras)
     torch.cuda.empty_cache()
+    
 
     # 运行safety_train.py
     print("==============================================")
-    print("[2/3] Train deep learning model for safety perception evaluation...")
+    print("[2/4] Finetune CLIP model... Running custom_clip_train.py")
+    print("==============================================")
+    
+    # finetune CLIP model
+    cfg_paras['CLIP_train_type'] = 'finetune'
+    clip_train(cfg_paras)
+    torch.cuda.empty_cache()
+
+    # 运行safety_train.py
+    print("==============================================")
+    print("[3/4] Train deep learning model for safety perception evaluation...")
     print("==============================================")
 
 
@@ -94,7 +106,7 @@ for parameter in variable_paras:
     # 评估结果，存入csv文件
     # overall performance, confusion matrix, ROC curve, precision-recall curve
     print("==============================================")
-    print("[3/3] Evaluate the models...")
+    print("[4/4] Evaluate the models...")
     print("==============================================")
 
     eval(cfg_paras)
