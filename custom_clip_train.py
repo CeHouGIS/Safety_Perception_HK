@@ -496,11 +496,15 @@ def clip_train(cfg_paras):
 
     best_loss = float('inf')
     count_after_best = 0
+    train_loss_list = []
+    valid_loss_list = []
     for epoch in range(cfg_paras['epochs']):
         print(f"Epoch: {epoch + 1}")
         model.train()
         train_loss = train_epoch(model, train_loader, optimizer, lr_scheduler, step, cfg_paras)
         run["train/train_loss"].append(train_loss.avg)
+        train_loss_list.append(train_loss.avg)
+        
         model.eval()
         with torch.no_grad():
             valid_loss = valid_epoch(model, valid_loader, cfg_paras)
@@ -517,10 +521,14 @@ def clip_train(cfg_paras):
         
         lr_scheduler.step(valid_loss.avg)
         run["train/valid_loss"].append(valid_loss.avg)
+        valid_loss_list.append(valid_loss.avg)
         
         count_after_best += 1
         if count_after_best > cfg_paras['early_stopping_threshold']:
             print("Early Stopping!")
+            # 将数组存储到文件中
+            np.save(os.path.join(cfg_paras['eval_path'], 'train_loss.npy'), np.array(train_loss_list))
+            np.save(os.path.join(cfg_paras['eval_path'], 'valid_loss.npy'), np.array(valid_loss_list))
             break
 
 def clip_finetune(cfg_paras):
