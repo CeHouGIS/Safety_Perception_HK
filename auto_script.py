@@ -109,6 +109,7 @@ def ml_eval(paras):
     plt.ylabel('Actual')
     plt.title('Confusion Matrix')
     plt.savefig(os.path.join(paras['eval_path'], 'confusion_matrix.png'))
+    plt.clf()
     return accuracy_score(y_valid, y_pred)
     
 def main():
@@ -117,7 +118,7 @@ def main():
     'debug':False,
     # 'dataset_path':"/data2/cehou/LLM_safety/img_text_data/dataset_baseline_baseline_baseline_baseline_1401.pkl",
     'dataset_path':'/data2/cehou/LLM_safety/img_text_data/baseline/tidyed/dataset_baseline_baseline_baseline_baseline_9030_withlabel.csv',
-    'save_model_path':"/data2/cehou/LLM_safety/LLM_models/clip_model/test",
+    'save_model_path':"/data_nas/cehou/LLM_safety/LLM_models/clip_model/test",
     'save_model_name':"model_baseline_test.pt",
     'device':torch.device("cuda:3" if torch.cuda.is_available() else "cpu"),
     'CLIP_train_type': 'train', # train, finetune
@@ -125,8 +126,8 @@ def main():
     'num_workers':4,
     'head_lr':1e-3,
     'temperature':0.05,
-    'image_encoder_lr':1e-5,
-    'text_encoder_lr':1e-5,
+    'image_encoder_lr':0.000100,
+    'text_encoder_lr':0.000045,
     'weight_decay':1e-3,
     'img_type':'PlacePulse',
     'patience':1,
@@ -138,6 +139,7 @@ def main():
     'size':(112,112),
     
     # models for image and text
+    'ml_model':'RandomForest',
     'model_name':'resnet50',
     'text_encoder_model':"distilbert-base-uncased",
     'text_tokenizer': "distilbert-base-uncased",
@@ -161,45 +163,83 @@ def main():
     'CNN_lr': 1e-2,
     }
     
+    # single loop
+    specific_paras = ['temperature']
+    variable_paras = [0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5]
+    
+    for i in variable_paras:
+        cfg_paras['device'] = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
+        cfg_paras[specific_paras[0]] = i
+        save_folder_name = '_'.join(specific_paras)
+        save_paras = [specific_paras[0], i]
+        save_file_name = '_'.join([str(x) for x in save_paras])
+        cfg_paras['save_model_path'] = f"/data_nas/cehou/LLM_safety/LLM_models/clip_model/{save_folder_name}/{save_file_name}"
+        if not os.path.exists(cfg_paras['save_model_path']):
+            os.makedirs(cfg_paras['save_model_path'])
+        cfg_paras['save_model_name'] = f"model_baseline_{save_file_name}.pt"
+        cfg_paras['safety_model_save_path'] = f"/data_nas/cehou/LLM_safety/LLM_models/safety_perception_model/{save_file_name}/"
+        cfg_paras['eval_path'] = f"/data2/cehou/LLM_safety/eval/{save_folder_name}/{save_file_name}/"
+        if not os.path.exists(cfg_paras['safety_model_save_path']):
+            os.makedirs(cfg_paras['safety_model_save_path'])
+        if not os.path.exists(cfg_paras['eval_path']):
+            os.makedirs(cfg_paras['eval_path'])
+
+        print("==============================================")
+        print("[1/2] Train CLIP model... Running custom_clip_train.py")
+        print("==============================================")
+
+        clip_train(cfg_paras)
+        torch.cuda.empty_cache()
+        
+        print("==============================================")
+        print("[2/2] safety perception model... Running safety_train_withCLIP.py")
+        print("==============================================")
+        
+        accuracy = ml_eval(cfg_paras)
+        cfg_paras['device'] = 'cuda:3'
+        cfg_paras['accuracy'] = accuracy
+        pd.DataFrame(cfg_paras).to_csv(os.path.join(cfg_paras['eval_path'], 'cfg_paras.csv'))
+    
+    # double loop
     specific_paras = ['image_encoder_lr', 'text_encoder_lr']
-    variable_paras = [1e-2, 1e-3, 1e-4, 1e-5, 1e-6]
+    variable_paras = np.linspace(1e-4, 1e-6, 10)
     # variable_paras = [1e-2]
 
     
-    for i in variable_paras:
-        for j in variable_paras:
-            cfg_paras['device'] = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
-            cfg_paras[specific_paras[0]] = i
-            cfg_paras[specific_paras[1]] = j
-            save_folder_name = '_'.join(specific_paras)
-            save_paras = [specific_paras[0], i, specific_paras[1], j]
-            save_file_name = '_'.join([str(x) for x in save_paras])
-            cfg_paras['save_model_path'] = f"/data2/cehou/LLM_safety/LLM_models/clip_model/{save_folder_name}/{save_file_name}"
-            if not os.path.exists(cfg_paras['save_model_path']):
-                os.makedirs(cfg_paras['save_model_path'])
-            cfg_paras['save_model_name'] = f"model_baseline_{save_file_name}.pt"
-            cfg_paras['safety_model_save_path'] = f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/{save_file_name}/"
-            cfg_paras['eval_path'] = f"/data2/cehou/LLM_safety/eval/{save_folder_name}/{save_file_name}/"
-            if not os.path.exists(cfg_paras['safety_model_save_path']):
-                os.makedirs(cfg_paras['safety_model_save_path'])
-            if not os.path.exists(cfg_paras['eval_path']):
-                os.makedirs(cfg_paras['eval_path'])
+    # for i in variable_paras:
+    #     for j in variable_paras:
+    #         cfg_paras['device'] = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
+    #         cfg_paras[specific_paras[0]] = i
+    #         cfg_paras[specific_paras[1]] = j
+    #         save_folder_name = '_'.join(specific_paras)
+    #         save_paras = [specific_paras[0], i, specific_paras[1], j]
+    #         save_file_name = '_'.join([str(x) for x in save_paras])
+    #         cfg_paras['save_model_path'] = f"/data_nas/cehou/LLM_safety/LLM_models/clip_model/{save_folder_name}/{save_file_name}"
+    #         if not os.path.exists(cfg_paras['save_model_path']):
+    #             os.makedirs(cfg_paras['save_model_path'])
+    #         cfg_paras['save_model_name'] = f"model_baseline_{save_file_name}.pt"
+    #         cfg_paras['safety_model_save_path'] = f"/data_nas/cehou/LLM_safety/LLM_models/safety_perception_model/{save_file_name}/"
+    #         cfg_paras['eval_path'] = f"/data2/cehou/LLM_safety/eval/{save_folder_name}/{save_file_name}/"
+    #         if not os.path.exists(cfg_paras['safety_model_save_path']):
+    #             os.makedirs(cfg_paras['safety_model_save_path'])
+    #         if not os.path.exists(cfg_paras['eval_path']):
+    #             os.makedirs(cfg_paras['eval_path'])
 
-            print("==============================================")
-            print("[1/2] Train CLIP model... Running custom_clip_train.py")
-            print("==============================================")
+    #         print("==============================================")
+    #         print("[1/2] Train CLIP model... Running custom_clip_train.py")
+    #         print("==============================================")
 
-            clip_train(cfg_paras)
-            torch.cuda.empty_cache()
+    #         clip_train(cfg_paras)
+    #         torch.cuda.empty_cache()
             
-            print("==============================================")
-            print("[2/2] safety perception model... Running safety_train_withCLIP.py")
-            print("==============================================")
+    #         print("==============================================")
+    #         print("[2/2] safety perception model... Running safety_train_withCLIP.py")
+    #         print("==============================================")
             
-            accuracy = ml_eval(cfg_paras)
-            cfg_paras['device'] = 'cuda:3'
-            cfg_paras['accuracy'] = accuracy
-            cfg_paras.to_csv(os.path.join(cfg_paras['eval_path'], 'cfg_paras.csv'))
+    #         accuracy = ml_eval(cfg_paras)
+    #         cfg_paras['device'] = 'cuda:3'
+    #         cfg_paras['accuracy'] = accuracy
+    #         pd.DataFrame(cfg_paras).to_csv(os.path.join(cfg_paras['eval_path'], 'cfg_paras.csv'))
             
         
 if __name__ == '__main__':
