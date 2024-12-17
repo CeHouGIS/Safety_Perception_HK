@@ -35,10 +35,11 @@ class LLMDialogueGenerator:
                 {
                     "role": "user",
                     "content": [
-                        {
+                        {"type": "image"},
+                         {
                             "type": "text",
                             "text": next_question
-                        },
+                        }
                     ],
                 },
             ]
