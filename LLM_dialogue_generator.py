@@ -13,7 +13,7 @@ class LLMDialogueGenerator:
         print(f"Using device: {self.device}")
         self.model.to(self.device)
         
-    def dialogue(self, conversation, GSV_img=None, max_new_tokens=500):
+    def dialogue(self, conversation, GSV_img=None, max_new_tokens=512):
         if GSV_img is None:
             prompt = self.processor.apply_chat_template(conversation, add_generation_prompt=True)
             inputs = self.processor(prompt, return_tensors="pt").to(self.device)
@@ -26,7 +26,7 @@ class LLMDialogueGenerator:
         # autoregressively complete prompt
         output = self.model.generate(**inputs, max_new_tokens=max_new_tokens)
 
-        # print(processor.decode(output[0], skip_special_tokens=True))
+        # print(self.processor.decode(output[0], skip_special_tokens=True))
         return self.processor.decode(output[0], skip_special_tokens=True)
 
     def generate_conversation(self, result, next_question, image=False):

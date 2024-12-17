@@ -1,3 +1,5 @@
+# python /code/LLM-crime/safety_perception_model/single_model/data_fusion.py
+
 import os
 # import cv2
 import timm
@@ -9,30 +11,27 @@ import numpy as np
 import pandas as pd
 # import albumentations as A
 import matplotlib.pyplot as plt
-from tqdm.autonotebook import tqdm
 from transformers import DistilBertModel, DistilBertConfig, DistilBertTokenizer
 from PIL import Image
 import torchvision.transforms as transforms
 from torchvision import models
 import neptune
 import argparse
+import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader, Dataset
 
 import warnings
 warnings.filterwarnings("ignore")
-
-
 import seaborn as sns
-import numpy as np
 from tqdm import tqdm
-from my_models import TransformerRegressionModel
 from safety_perception_dataset import *
 from collections import Counter
 
 import sys
 sys.path.append("/code/LLM-crime")
 from custom_clip_train import CLIPModel, CLIPDataset, build_loaders, make_prediction
-
+from sklearn.metrics import confusion_matrix, f1_score
+from sklearn.decomposition import PCA
 
 class CLIPDataset(torch.utils.data.Dataset):
     def __init__(self, dataframe, tokenizer, transforms, cfg_paras):
@@ -342,7 +341,7 @@ class ClassifierHead(nn.Module):
         self.projection = nn.Linear(input_dim, hidden_dim)
         # self.projection = nn.Linear(cfg_paras['embedding_dim'], cfg_paras['projection_dim'])
         self.gelu = nn.GELU()
-        self.dropout = nn.Dropout(cfg_paras['dropout'])
+        self.dropout = nn.Dropout(0.1)
         self.layer_norm = nn.LayerNorm(hidden_dim)
         self.fc = nn.Linear(hidden_dim, output_dim)
     
@@ -422,7 +421,7 @@ def train_classification_head(classifier_head, train_loader, valid_loader, paras
         if valid_loss < best_loss:
             best_loss = valid_loss
             if save:
-                torch.save(classifier_head.state_dict(), f"{paras['model_savepath']}classification_head_best.pth")
+                torch.save(classifier_head.state_dict(), f"{paras['model_savepath']}/{paras['model_savename']}.pth")
                 
         
         count_after_best += 1
@@ -433,10 +432,47 @@ def train_classification_head(classifier_head, train_loader, valid_loader, paras
             print(f"Early Stopping!, save loss into {paras['eval_path']}")
             
             # evaluation          
-            break
+            return classifier_head, accuracy
         
-def eval():
-    pass
+def eval(model, test_loader, paras):
+    model.eval()
+    all_preds = []
+    all_labels = []
+    with torch.no_grad():
+        for batch in tqdm(test_loader, total=len(test_loader)):
+            combined_features = batch['fused_feature'].to(paras['device'])
+            labels = batch['label'].to(paras['device'])
+            
+            outputs = model(combined_features)
+            _, predicted = torch.max(outputs.data, 1)
+            
+            all_preds.extend(predicted.cpu().numpy())
+            all_labels.extend(labels.cpu().numpy())
+    
+    # Calculate confusion matrix
+
+    cm = confusion_matrix(all_labels, all_preds)
+    f1 = f1_score(all_labels, all_preds, average='weighted')
+
+    plt.figure(figsize=(10, 7))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+    plt.xlabel('Predicted')
+    plt.ylabel('True')
+    plt.title(f'Confusion Matrix\nF1 Score: {f1:.2f}')
+    plt.savefig(f"{paras['eval_path']}/confusion_matrix.png", dpi=300, bbox_inches='tight')
+    plt.clf()
+    
+    # PCA plot
+    combined_features = test_loader.dataset.fused_feature
+    pca = PCA(n_components=2)
+    combined_feature_pca = pca.fit_transform(combined_features)
+    # print(combined_features.shape, test_loader.dataset.labels.shape)
+    sns.scatterplot(x=combined_feature_pca[:,0], y=combined_feature_pca[:,1], hue=test_loader.dataset.labels)
+    plt.title("PCA of Fused Feature")
+    plt.savefig(f"{paras['eval_path']}/PCA.png", dpi=300, bbox_inches='tight')
+    plt.clf()
+    print(f"F1 Score: {f1:.2f}")
+    return f1
 
 def main():
     cfg_paras = {
@@ -479,9 +515,9 @@ def main():
     # safety perception
     # 'CLIP_model_path': "/data2/cehou/LLM_safety/LLM_models/clip_model/test/model_baseline_best.pt",
     'variables_save_paths': f"/data2/cehou/LLM_safety/middle_variables/test",
-    'safety_model_save_path' : f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/",
+    'safety_model_save_path' : f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model",
     'placepulse_datapath': "/data2/cehou/LLM_safety/PlacePulse2.0/image_perception_score.csv",
-    'eval_path': "/data2/cehou/LLM_safety/eval/test/",
+    'eval_path': "/data2/cehou/LLM_safety/eval/test",
     'train_type': 'classification',
     'safety_epochs': 200,
     'batch_size_safety': 256,
@@ -497,14 +533,13 @@ def main():
     df = data_nonezero[data_nonezero['Category'] == 'safety']
     tokenizer = DistilBertTokenizer.from_pretrained(cfg_paras['text_tokenizer'])
 
-    train_loader = build_loaders(df, tokenizer, mode="train", cfg_paras=cfg_paras)
+    print("building features")
+    feature_extracting_loader = build_loaders(df, tokenizer, mode="train", cfg_paras=cfg_paras)
     # valid_loader = build_loaders(df.iloc[train_num:].reset_index(drop=True), tokenizer, mode="valid", cfg_paras=cfg_paras)
-
     image_encoder = ImageEncoder(cfg_paras).to(cfg_paras['device'])
     text_encoder = TextEncoder(cfg_paras).to(cfg_paras['device'])
-    image_features, text_features, labels = cal_features(train_loader, image_encoder, text_encoder, cfg_paras)
-    
-
+    print("calculating image and text features")
+    image_features, text_features, labels = cal_features(feature_extracting_loader, image_encoder, text_encoder, cfg_paras)
     
     # classification model
     # parameters
@@ -512,30 +547,56 @@ def main():
         
         'fusion_method': 'concat', # data fusion
         
-        
+        'batch_size': 256,
         'device': torch.device('cuda:0' if torch.cuda.is_available() else 'cpu'), # deep learning
         'lr': 1e-4,
-        'num_epochs': 100,
+        'num_epochs': 999,
+        'repeat_time': 5,
         
         'input_dim': image_features.shape[1] + text_features.shape[1],
-        'hidden_dim': 512,
+        'hidden_dim': 1024,
         'output_dim': 2,
         
-        'model_savepath': '/data_nas/cehou/LLM_safety/LLM_models/classifier_head/',
-        'eval_path': '/data2/cehou/LLM_safety/classifier/eval/',
+        'model_savepath': '/data_nas/cehou/LLM_safety/LLM_models/classifier_head',
+        'model_savename': 'classifier_head',
+        'eval_path': '/data2/cehou/LLM_safety/classifier/eval',
+        
         'early_stopping_threshold':5
     }
     
     # data fusion
     fused_feature = data_fusion(image_features, text_features, method=paras['fusion_method'])
     
-    # 数据加载器
-    train_num = int(len(fused_feature) * 0.7)
+    train_num = int(len(fused_feature) * 0.6)
+    valid_num = int(len(fused_feature) * 0.2)
     train_dataset = ClassificationDataset(fused_feature, labels[:train_num])
-    valid_dataset = ClassificationDataset(fused_feature, labels[train_num:])
+    valid_dataset = ClassificationDataset(fused_feature[train_num:train_num+valid_num], labels[train_num:train_num+valid_num])
+    test_dataset = ClassificationDataset(fused_feature[train_num+valid_num:], labels[train_num+valid_num:])
 
     train_loader = DataLoader(train_dataset, batch_size=paras['batch_size'], shuffle=True)
     valid_loader = DataLoader(valid_dataset, batch_size=paras['batch_size'])
+    test_loader = DataLoader(test_dataset, batch_size=paras['batch_size'])
     
-    classifier_head = ClassifierHead(paras['input_dim'], paras['hidden_dim'], paras['output_dim']).to(paras['device'])
-    train_classification_head(classifier_head, train_loader, valid_loader, paras, save=True)
+    tuning_paras = 'lr'
+    tuning_values = [1e-7, 1e-6, 1e-5, 1e-4, 1e-3]
+    for i in tuning_values:
+        for j in range(paras['repeat_time']):
+            paras['model_savename'] = f'classifier_head_{tuning_paras}_{i}_{j}'
+            paras['eval_path'] = f"/data2/cehou/LLM_safety/classifier/eval/{tuning_paras}_{i}_{j}"
+            if not os.path.exists(paras['eval_path']):
+                os.makedirs(paras['eval_path'])
+            
+            classifier_head = ClassifierHead(paras['input_dim'], paras['hidden_dim'], paras['output_dim']).to(paras['device'])
+            classifier_head, accuracy = train_classification_head(classifier_head, train_loader, valid_loader, paras, save=True)
+            paras['accuracy'] = accuracy
+            
+            # evaluation
+            f1 = eval(classifier_head, test_loader, paras)
+            paras['f1'] = f1
+            paras['device'] = 'cuda'
+            paras_df = pd.DataFrame(paras, index=[0])
+            paras_df.to_csv(f"{paras['eval_path']}/paras.csv", index=False)
+
+        
+if __name__ == '__main__':
+    main()
