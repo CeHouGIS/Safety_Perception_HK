@@ -49,7 +49,7 @@ parser.add_argument('--max-new-tokens', default=512, type=int,
                     help='event of virtual agent for safety perception')
 parser.add_argument('--data-num', default=5000, type=int,
                     help='event of virtual agent for safety perception')
-parser.add_argument('--batch-size', default=40, type=int,
+parser.add_argument('--batch-size', default=4, type=int,
                     help='event of virtual agent for safety perception')
 
 def count_characters(s):
