@@ -1,7 +1,7 @@
 # generate baseline data
 # python /code/LLM-crime/generate_dataset.py --visible-device "cuda:3" --age "baseline" --gender "baseline" --location "baseline" --event "baseline" --img-type "PlacePulse" --start-from 0 --data-num 10000
 
-# python /code/LLM-crime/generate_dataset.py --visible-device "0,1" --age "30" --gender "male" --location "HongKong" --event "traffic accident" --img-type "GSV" --start-from 647 --data-num 4989
+# python /code/LLM-crime/generate_dataset.py --visible-device "3" --age "30" --gender "male" --location "HongKong" --event "traffic accident" --img-type "GSV" --start-from 679 --data-num 4989
 # python /code/LLM-crime/generate_dataset.py --device-id "cuda:1" --age "30" --gender "female" --location "HongKong" --event "murder" --img-type "GSV" --start-from 0
 
 # generate specific data
@@ -49,7 +49,7 @@ parser.add_argument('--max-new-tokens', default=512, type=int,
                     help='event of virtual agent for safety perception')
 parser.add_argument('--data-num', default=5000, type=int,
                     help='event of virtual agent for safety perception')
-parser.add_argument('--batch-size', default=3, type=int,
+parser.add_argument('--batch-size', default=4, type=int,
                     help='event of virtual agent for safety perception')
 
 def count_characters(s):

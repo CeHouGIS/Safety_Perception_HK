@@ -9,7 +9,7 @@ import numpy as np
 import os
 
 class LLaVaFeatureExtractor:
-    def __init__(self,device):
+    def __init__(self):
         self.processor = LlavaNextProcessor.from_pretrained("llava-hf/llava-v1.6-mistral-7b-hf")
         quantization_config = BitsAndBytesConfig(
         load_in_4bit=True,
