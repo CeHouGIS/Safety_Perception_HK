@@ -39,6 +39,8 @@ class LLMImageFeaturePrextractor(nn.Module):
             img_feature = img_feature.mean(dim=(1))
         if self.process == 'mean_dim2':
             img_feature = img_feature.mean(dim=(2))
+        if self.process == 'mean':
+            img_feature = img_feature.mean(dim=(1,2))
         if self.process == 'max_dim1':
             img_feature = img_feature.max(dim=(1))[0]
         if self.process == 'max_dim2':
@@ -167,6 +169,7 @@ def train(model, pbar, criterion, optimizer, LLM_model=None):
     for batch_idx, (data, target) in enumerate(pbar):
         if LLM_model is not None:
             data = LLM_pre_extractor([data[i] for i in range(len(data))])
+    
         # 将数据和目标移到GPU（如果有的话）
         data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()  # 清零梯度
@@ -234,16 +237,17 @@ def plot_confusion_matrix(cm, labels):
     ax.yaxis.set_ticklabels(labels)
     return None
 
-def main(variables_name=None, variables_value=None):
+def main(variables_dict=None):
     # parameters
     parameters = {
         'train_type': "classification",
         'placepulse_datapath': "/data2/cehou/LLM_safety/PlacePulse2.0/image_perception_score.csv",
         'safety_save_path' : f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/only_img/",
         'safety_model_save_name':"model_baseline.pt",
+        'subfolder_name': 'baseline',
         
         # model training parameters
-        'num_epochs': 5,
+        'num_epochs': 2,
         'visual_feature_extractor': 'resnet18',
         'batch_size': 128,
         'input_dim': 512,
@@ -257,14 +261,15 @@ def main(variables_name=None, variables_value=None):
         'f1_score': None
     }
     
-    if variables_name is not None:
-        subfolder_name = ''
-        for i in range(len(variables_name)):
-            parameters[variables_name[i]] = variables_value[i]
-            subfolder_name += f"{variables_name[i]}_{variables_value[i]}_"
+    if variables_dict is not None:
+        for key, value in variables_dict.items():
+            parameters[key] = value
             
-        parameters['safety_save_path'] = f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/only_img/{subfolder_name}/"
-        parameters['safety_model_save_name'] = f"model_baseline_{subfolder_name}.pt"
+        parameters['safety_model_save_name'] = f"model_baseline_{parameters['subfolder_name']}.pt"
+        
+    if not os.path.exists(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'])):
+        os.makedirs(os.path.join(parameters['safety_save_path'], parameters['subfolder_name']))
+        
             
     data = pd.read_csv(parameters['placepulse_datapath'])
     data_ls = data[data['label'] != 0]
@@ -274,17 +279,23 @@ def main(variables_name=None, variables_value=None):
     valid_num = int(len(data_ls) * 0.2)
   
 
-    train_dataset = SafetyPerceptionDataset(data_ls[:train_num], transform=transform, paras=parameters)
-    valid_dataset = SafetyPerceptionDataset(data_ls[train_num:train_num+valid_num], transform=transform, paras=parameters)
-    test_dataset = SafetyPerceptionDataset(data_ls[train_num+valid_num:], transform=transform, paras=parameters)
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=parameters['batch_size'], shuffle=True)
-    valid_loader = torch.utils.data.DataLoader(valid_dataset, batch_size=parameters['batch_size'])
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=parameters['batch_size'])
+
 
     if parameters['LLM_loaded'] == True:
         LLM_pre_extractor = LLMImageFeaturePrextractor(process=parameters['LLM_feature_process'])
+        train_dataset = SafetyPerceptionDataset(data_ls[:train_num], paras=parameters)
+        valid_dataset = SafetyPerceptionDataset(data_ls[train_num:train_num+valid_num], paras=parameters)
+        test_dataset = SafetyPerceptionDataset(data_ls[train_num+valid_num:], paras=parameters)
     else:
         LLM_pre_extractor = None
+        train_dataset = SafetyPerceptionDataset(data_ls[:train_num], transform=transform, paras=parameters)
+        valid_dataset = SafetyPerceptionDataset(data_ls[train_num:train_num+valid_num], transform=transform, paras=parameters)
+        test_dataset = SafetyPerceptionDataset(data_ls[train_num+valid_num:], transform=transform, paras=parameters)
+        
+        
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=parameters['batch_size'], shuffle=True)
+    valid_loader = torch.utils.data.DataLoader(valid_dataset, batch_size=parameters['batch_size'])
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=parameters['batch_size'])
 
     extractor = Extractor(pretrained_model=parameters['visual_feature_extractor']) # [128, 512]
     adaptor = Adaptor(input_dim=parameters['input_dim'], projection_dim=parameters['adaptor_output_dim'], data_type='image') # [128, 256]
@@ -312,8 +323,8 @@ def main(variables_name=None, variables_value=None):
         if early_stopping.early_stop:
             print("Early stopping")
             
-            torch.save(model.state_dict(), os.path.join(parameters['safety_save_path'], parameters['safety_model_save_name']))
-            print("Model saved at ", os.path.join(parameters['safety_save_path'], parameters['safety_model_save_name']))
+            torch.save(model.state_dict(), os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], parameters['safety_model_save_name']))
+            print("Model saved at ", os.path.join(parameters['safety_save_path'] , parameters['subfolder_name'], parameters['safety_model_save_name']))
             break
 
     torch.save(model.state_dict(), os.path.join(parameters['safety_save_path'], parameters['safety_model_save_name']))
@@ -323,14 +334,14 @@ def main(variables_name=None, variables_value=None):
     parameters['f1_score'] = f1
     
     pd.DataFrame(parameters).to_csv(parameters['safety_save_path'] + 'train_loss.csv')
-    print("Parameters saved at ", os.path.join(parameters['safety_save_path'], 'parameters.csv'))    
+    print("Parameters saved at ", os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], 'parameters.csv'))    
 
     fig, ax = plt.subplots()
     sns.heatmap(cm, annot=True, ax=ax, cmap='Blues', fmt='g')
     ax.set_xlabel('Predicted labels')
     ax.set_ylabel('True labels')
     ax.set_title('Confusion Matrix')
-    plt.savefig(os.path.join(parameters['safety_save_path'], 'confusion_matrix.png'), dpi=300, bbox_inches='tight')
+    plt.savefig(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], 'confusion_matrix.png'), dpi=300, bbox_inches='tight')
    
 # if __name__ == '__main__':
  

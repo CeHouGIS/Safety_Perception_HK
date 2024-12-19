@@ -34,6 +34,8 @@ class SafetyPerceptionDataset(Dataset):
             
         if self.transform:            
             image = self.transform(image)
+        else:
+            image = transforms.ToTensor()(image)
 
         return image, label
     
