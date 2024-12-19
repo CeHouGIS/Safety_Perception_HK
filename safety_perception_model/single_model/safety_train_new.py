@@ -247,7 +247,7 @@ def main(variables_dict=None):
         'subfolder_name': 'baseline',
         
         # model training parameters
-        'num_epochs': 2,
+        'num_epochs': 1,
         'visual_feature_extractor': 'resnet18',
         'batch_size': 128,
         'input_dim': 512,
@@ -327,13 +327,13 @@ def main(variables_dict=None):
             print("Model saved at ", os.path.join(parameters['safety_save_path'] , parameters['subfolder_name'], parameters['safety_model_save_name']))
             break
 
-    torch.save(model.state_dict(), os.path.join(parameters['safety_save_path'], parameters['safety_model_save_name']))
-    print("Model saved at ", os.path.join(parameters['safety_save_path'], parameters['safety_model_save_name']))
+    torch.save(model.state_dict(), os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], parameters['safety_model_save_name']))
+    print("Model saved at ", os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], parameters['safety_model_save_name']))
     
     f1, cm, all_preds, all_labels = model_test(model, test_loader, LLM_model=LLM_pre_extractor)
     parameters['f1_score'] = f1
     
-    pd.DataFrame(parameters).to_csv(parameters['safety_save_path'] + 'train_loss.csv')
+    pd.DataFrame(parameters).to_csv(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], 'parameters.csv'))
     print("Parameters saved at ", os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], 'parameters.csv'))    
 
     fig, ax = plt.subplots()
