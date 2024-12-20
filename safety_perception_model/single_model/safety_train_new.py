@@ -255,10 +255,11 @@ def main(variables_dict=None):
         'adaptor_output_dim': 256,
         'num_classes': 2,
         'lr': 0.001,
-        'LLM_loaded': False,
+        'LLM_loaded': True,
         'LLM_feature_process': 'mean_dim1',
         'train_loss_list': [],
         'val_loss_list': [],
+        'accuracy': None,
         'f1_score': None
     }
     
@@ -329,6 +330,7 @@ def main(variables_dict=None):
     print("Model saved at ", os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], parameters['safety_model_save_name']))
     
     f1, cm, all_preds, all_labels = model_test(model, test_loader, LLM_model=LLM_pre_extractor)
+    parameters['accuracy'] = cm.diagonal().sum() / cm.sum()
     parameters['f1_score'] = f1
     
     pd.DataFrame(parameters).to_csv(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], 'parameters.csv'))
@@ -342,8 +344,7 @@ def main(variables_dict=None):
     plt.savefig(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], 'confusion_matrix.png'), dpi=300, bbox_inches='tight')
    
 if __name__ == '__main__':
-    variables_dict = {'lr':np.linspace(1e-8, 1e-5, 10),
-                      'LLM_loaded': [False]}
+    variables_dict = {'lr':np.linspace(1e-6, 1e-5, 5)}
 
     combinations = list(product(*variables_dict.values()))
 
