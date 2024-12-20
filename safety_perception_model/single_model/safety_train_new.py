@@ -19,6 +19,7 @@ import seaborn as sns
 from collections import Counter
 from sklearn.metrics import r2_score
 import shutil
+from itertools import product
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 
@@ -254,7 +255,7 @@ def main(variables_dict=None):
         'adaptor_output_dim': 256,
         'num_classes': 2,
         'lr': 0.001,
-        'LLM_loaded': True,
+        'LLM_loaded': False,
         'LLM_feature_process': 'mean_dim1',
         'train_loss_list': [],
         'val_loss_list': [],
@@ -277,7 +278,6 @@ def main(variables_dict=None):
     transform = get_transforms((224,224))
     train_num = int(len(data_ls) * 0.6)
     valid_num = int(len(data_ls) * 0.2)
-
 
     if parameters['LLM_loaded'] == True:
         LLM_pre_extractor = LLMImageFeaturePrextractor(process=parameters['LLM_feature_process'])
@@ -306,7 +306,7 @@ def main(variables_dict=None):
     optimizer = optim.Adam(model.parameters(), lr=parameters['lr'])
                         
                     
-    early_stopping = EarlyStopping(patience=20, verbose=True)
+    early_stopping = EarlyStopping(patience=5, verbose=True)
     for epoch in range(parameters["num_epochs"]):    
         pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{parameters['num_epochs']}",unit="batch", mininterval=2.0)
         running_loss = train(model, pbar, criterion, optimizer, LLM_model=LLM_pre_extractor)
@@ -341,5 +341,14 @@ def main(variables_dict=None):
     ax.set_title('Confusion Matrix')
     plt.savefig(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], 'confusion_matrix.png'), dpi=300, bbox_inches='tight')
    
-# if __name__ == '__main__':
- 
+if __name__ == '__main__':
+    variables_dict = {'lr':[0.001, 0.0001, 0.00001, 1e-6],
+                      'LLM_loaded': [False]}
+
+    combinations = list(product(*variables_dict.values()))
+
+    for combination in tqdm(combinations):
+        input_dict = dict(zip(variables_dict.keys(), combination))
+        input_dict['subfolder_name'] = '_'.join([f"{key}_{value}" for key, value in input_dict.items()])
+        
+        main(input_dict)

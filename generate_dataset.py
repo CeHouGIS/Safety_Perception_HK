@@ -2,7 +2,7 @@
 # python /code/LLM-crime/generate_dataset.py --visible-device "cuda:3" --age "baseline" --gender "baseline" --location "baseline" --event "baseline" --img-type "PlacePulse" --start-from 0 --data-num 10000
 
 # python /code/LLM-crime/generate_dataset.py --visible-device "2,3" --age "30" --gender "male" --location "HongKong" --event "traffic accident" --img-type "GSV" --start-from 3054 --data-num 4000 --batch-size 5
-# python /code/LLM-crime/generate_dataset.py --device-id "cuda:1" --age "30" --gender "female" --location "HongKong" --event "murder" --img-type "GSV" --start-from 0
+# python /code/LLM-crime/generate_dataset.py --visible-device "2,3" --age "30" --gender "female" --location "HongKong" --event "traffic accident" --img-type "GSV" --start-from 0 --data-num 4989 --batch-size 4
 
 # generate specific data
 # python /code/LLM-crime/generate_dataset.py --device-id "cuda:2" --age "30" --gender "female" --location "HongKong" --event "murder" --specific-img True --img-type "PlacePulse" --start-from 351
@@ -74,7 +74,7 @@ def count_characters(s):
     
 def get_img(GSV_metadata, GSV_rootpath, idx, img_size):
     GSV_name = GSV_metadata.iloc[idx]['panoid']
-    GSV_list = [f"{GSV_rootpath}/{GSV_name}_{angle}.jpg" for angle in range(0, 360, 90)]
+    GSV_list = [f"{GSV_rootpath}/{GSV_name[0]}/{GSV_name[1]}/{GSV_name}_{angle}.jpg" for angle in range(0, 360, 90)]
     for i,path in enumerate(GSV_list):
         if i == 0:
             GSV_img = np.array(Image.open(GSV_list[0]))
