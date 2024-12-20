@@ -247,7 +247,7 @@ def main(variables_dict=None):
         'subfolder_name': 'baseline',
         
         # model training parameters
-        'num_epochs': 1,
+        'num_epochs': 999,
         'visual_feature_extractor': 'resnet18',
         'batch_size': 128,
         'input_dim': 512,
@@ -277,8 +277,6 @@ def main(variables_dict=None):
     transform = get_transforms((224,224))
     train_num = int(len(data_ls) * 0.6)
     valid_num = int(len(data_ls) * 0.2)
-  
-
 
 
     if parameters['LLM_loaded'] == True:

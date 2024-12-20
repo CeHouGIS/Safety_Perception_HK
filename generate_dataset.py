@@ -1,7 +1,7 @@
 # generate baseline data
 # python /code/LLM-crime/generate_dataset.py --visible-device "cuda:3" --age "baseline" --gender "baseline" --location "baseline" --event "baseline" --img-type "PlacePulse" --start-from 0 --data-num 10000
 
-# python /code/LLM-crime/generate_dataset.py --visible-device "2,3" --age "30" --gender "male" --location "HongKong" --event "traffic accident" --img-type "GSV" --start-from 1282 --data-num 2000 -- batch-size 5
+# python /code/LLM-crime/generate_dataset.py --visible-device "2,3" --age "30" --gender "male" --location "HongKong" --event "traffic accident" --img-type "GSV" --start-from 3054 --data-num 4000 --batch-size 5
 # python /code/LLM-crime/generate_dataset.py --device-id "cuda:1" --age "30" --gender "female" --location "HongKong" --event "murder" --img-type "GSV" --start-from 0
 
 # generate specific data

@@ -5,7 +5,7 @@ from itertools import product
 from tqdm import tqdm
 
 variables_dict = {'lr':[0.001, 0.0001, 0.00001, 1e-6], 
-                   'LLM_feature_process':['mean_dim1', 'mean_dim2', 'mean']}
+                   'LLM_feature_process':['mean_dim1', 'mean_dim2']}
 
 combinations = list(product(*variables_dict.values()))
 
