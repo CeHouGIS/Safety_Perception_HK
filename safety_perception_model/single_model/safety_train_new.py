@@ -342,7 +342,7 @@ def main(variables_dict=None):
     plt.savefig(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], 'confusion_matrix.png'), dpi=300, bbox_inches='tight')
    
 if __name__ == '__main__':
-    variables_dict = {'lr':[0.001, 0.0001, 0.00001, 1e-6],
+    variables_dict = {'lr':np.linspace(1e-8, 1e-5, 10),
                       'LLM_loaded': [False]}
 
     combinations = list(product(*variables_dict.values()))
