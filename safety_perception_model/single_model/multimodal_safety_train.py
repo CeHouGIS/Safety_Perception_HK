@@ -9,6 +9,7 @@ import sys
 sys.path.append("/code/LLM-crime/single_model")
 from my_models import TransformerRegressionModel, ResNet50Model, ViTClassifier
 from LLM_feature_extractor import LLaVaFeatureExtractor
+import transformers
 from data_fusion import *
 from PIL import Image
 import torchvision.transforms as transforms
@@ -130,11 +131,11 @@ class TextExtractor(nn.Module):
     def __init__(self, pretrained_model='Bert'):
         super(TextExtractor, self).__init__()
         if pretrained_model == 'Bert':
-            self.model = models.BertModel.from_pretrained('bert-base-uncased')
+            self.model = transformers.BertTokenizer.from_pretrained('bert-base-uncased')
         if pretrained_model == 'GPT2':
-            self.model = models.GPT2Model.from_pretrained('gpt2')
+            self.model = transformers.GPT2Tokenizer.from_pretrained('gpt2')
         if pretrained_model == 'DistilBert':
-            self.model = models.DistilBertModel.from_pretrained('distilbert-base-uncased')
+            self.model = transformers.DistilBertModel.from_pretrained('distilbert-base-uncased')
 
     def forward(self, x):
         # 输入文本 x，返回提取的特征
@@ -224,7 +225,7 @@ class MultiModalModel(nn.Module):
     def forward(self, x_img, x_text):
         # 先通过extractor提取特征，再通过adaptor处理，最后分类
         img_features = self.image_extractor(x_img)
-        text_features = self.text_extractor(x_text)
+        text_features = x_text
         adapted_img_features = self.image_adaptor(img_features)
         adapted_text_features = self.text_adaptor(text_features)
         mixed_features = self.mixer(adapted_img_features, adapted_text_features)
@@ -261,14 +262,14 @@ def train(model, pbar, criterion, optimizer, LLM_model=None):
         LLM_pre_extractor = LLM_model
     model.train()  # 切换到训练模式
     running_loss = 0.0
-    for batch_idx, (data, target) in enumerate(pbar):
+    for batch_idx, (data, description, target) in enumerate(pbar):
         if LLM_model is not None:
             data = LLM_pre_extractor([data[i] for i in range(len(data))])
     
         # 将数据和目标移到GPU（如果有的话）
-        data, target = data.cuda(), target.cuda()
+        data, description, target = data.cuda(), description.cuda(), target.cuda()
         optimizer.zero_grad()  # 清零梯度
-        output = model(data)  # 获取模型输出
+        output = model(data, description)  # 获取模型输出
         loss = criterion(output, target)
 
         # target_one_hot = F.one_hot(target, num_classes=2).float()
@@ -290,7 +291,7 @@ def eval(model, valid_loader, criterion, LLM_model=None):
         for data, target in valid_loader:
             if LLM_model is not None:
                 data = LLM_pre_extractor([data[i] for i in range(len(data))])
-            data, target = data.cuda(), target.cuda().long()
+            data, description, target = data.cuda(), description.cuda(), target.cuda().long()
             output = model(data)
             loss = criterion(output, target)
             val_loss += loss.item()
@@ -304,7 +305,7 @@ def model_test(model, test_loader, LLM_model=None):
     all_labels = []
 
     with torch.no_grad():  # 关闭梯度计算，节省内存
-        for data, target in test_loader:
+        for data, description, target in test_loader:
             if LLM_model is not None:
                 data = LLM_pre_extractor([data[i] for i in range(len(data))])
             data, target = data.cuda(), target.cuda().long()
@@ -334,7 +335,7 @@ def main(variables_dict=None):
     # parameters
     parameters = {
         'train_type': "classification",
-        'placepulse_datapath': "/data2/cehou/LLM_safety/PlacePulse2.0/image_perception_score.csv",
+        'placepulse_datapath': "/data2/cehou/LLM_safety/img_text_data/baseline/tidyed/dataset_baseline_baseline_baseline_baseline_9030_withlabel.csv",
         'safety_save_path' : f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/",
         'safety_model_save_name':"model_baseline.pt",
         'subfolder_name': 'baseline',
@@ -377,14 +378,14 @@ def main(variables_dict=None):
 
     if parameters['LLM_loaded'] == True:
         LLM_pre_extractor = LLMImageFeaturePrextractor(process=parameters['LLM_image_feature_process'])
-        train_dataset = SafetyPerceptionDataset(data_ls[:train_num], paras=parameters)
-        valid_dataset = SafetyPerceptionDataset(data_ls[train_num:train_num+valid_num], paras=parameters)
-        test_dataset = SafetyPerceptionDataset(data_ls[train_num+valid_num:], paras=parameters)
+        train_dataset = MultimodalSafetyPerceptionDataset(data_ls[:train_num], paras=parameters)
+        valid_dataset = MultimodalSafetyPerceptionDataset(data_ls[train_num:train_num+valid_num], paras=parameters)
+        test_dataset = MultimodalSafetyPerceptionDataset(data_ls[train_num+valid_num:], paras=parameters)
     else:
         LLM_pre_extractor = None
-        train_dataset = SafetyPerceptionDataset(data_ls[:train_num], transform=transform, paras=parameters)
-        valid_dataset = SafetyPerceptionDataset(data_ls[train_num:train_num+valid_num], transform=transform, paras=parameters)
-        test_dataset = SafetyPerceptionDataset(data_ls[train_num+valid_num:], transform=transform, paras=parameters)
+        train_dataset = MultimodalSafetyPerceptionDataset(data_ls[:train_num], tokenizer='', transform=transform, paras=parameters)
+        valid_dataset = MultimodalSafetyPerceptionDataset(data_ls[train_num:train_num+valid_num], tokenizer='', transform=transform, paras=parameters)
+        test_dataset = MultimodalSafetyPerceptionDataset(data_ls[train_num+valid_num:], tokenizer='', transform=transform, paras=parameters)
         
         
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=parameters['batch_size'], shuffle=True)

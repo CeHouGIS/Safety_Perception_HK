@@ -5,6 +5,7 @@ from torch.utils.data import Dataset
 from tqdm import tqdm
 from PIL import Image
 import torchvision.transforms as transforms
+import transformers
 
 class SafetyPerceptionDataset(Dataset):
     def __init__(self, data, transform=None, paras=None):
@@ -38,6 +39,53 @@ class SafetyPerceptionDataset(Dataset):
             image = transforms.ToTensor()(image)
 
         return image, label
+
+class MultimodalSafetyPerceptionDataset(Dataset):
+    def __init__(self, data, tokenizer=None, transform=None, paras=None):
+        """
+        Args:
+            data (list or np.array): List or array of data samples.
+            labels (list or np.array): List or array of labels corresponding to the data samples.
+            transform (callable, optional): Optional transform to be applied on a sample.
+        """
+        self.data = data
+        self.captions = list(self.data['text_description_short'])   
+        if tokenizer == 'Bert':
+            self.tokenizer = transformers.BertTokenizer.from_pretrained('bert-base-uncased')
+        elif tokenizer == 'GPT2':
+            self.tokenizer = transformers.GPT2Tokenizer.from_pretrained('gpt2')
+        elif tokenizer == 'DistilBert':
+            self.tokenizer = transformers.DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
+
+        self.transform = transform
+        self.img_path = "/data2/cehou/LLM_safety/PlacePulse2.0/photo_dataset/final_photo_dataset/"
+        self.paras = paras
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        image_path = f"{self.img_path}/{self.data.iloc[idx]['Image_ID']}.jpg"
+        
+        image = np.array(Image.open(f"{self.img_path}/{self.data.iloc[idx]['Image_ID']}.jpg"))
+        image = Image.fromarray(image)
+        if self.paras['train_type'] == 'classification':
+            label = self.data.iloc[idx]["label"]
+            # label = label * 100 // 5
+        elif self.paras['train_type'] == 'regression':
+            label = self.data.iloc[idx]["Score"]
+            
+        if self.transform:            
+            image = self.transform(image)
+        else:
+            image = transforms.ToTensor()(image)
+
+        tokenized_text = self.tokenizer(
+            self.data.iloc[idx]["text_description_short"], padding=True, truncation=True, max_length=512
+        )
+        encoded_descriptions =  torch.tensor(tokenized_text['input_ids'])
+
+        return image, encoded_descriptions, label
     
 def get_transforms(resize_size):
     return transforms.Compose(
