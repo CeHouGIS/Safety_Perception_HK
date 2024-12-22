@@ -7,7 +7,7 @@ from torchvision import models
 import torch.optim as optim
 import sys
 sys.path.append("/code/LLM-crime/single_model")
-sys.path.append("/code/LLM-crime")
+from my_models import TransformerRegressionModel, ResNet50Model, ViTClassifier
 from LLM_feature_extractor import LLaVaFeatureExtractor
 from PIL import Image
 import torchvision.transforms as transforms
@@ -67,8 +67,7 @@ class Extractor(nn.Module):
     def __init__(self, pretrained_model='resnet18'):
         super(Extractor, self).__init__()
         if pretrained_model == 'ViT':
-            self.model = models.vit_b_16(pretrained=True)
-            self.model = nn.Sequential(*list(self.model.children())[:-2])
+            pass
         if pretrained_model == 'resnet50':
             self.model = models.resnet50(pretrained=True)
             # 去掉最后的全连接层
@@ -83,8 +82,6 @@ class Extractor(nn.Module):
         # 输入图像 x，返回提取的特征
         with torch.no_grad():  # 禁用梯度计算
             features = self.model(x)
-            if features.dim() == 4:
-                features = F.adaptive_avg_pool2d(features, (1, 1))
         # 返回特征的展平（flatten）形式
         return features.view(features.size(0), -1)
     
@@ -254,7 +251,7 @@ def main(variables_dict=None):
         'num_epochs': 999,
         'visual_feature_extractor': 'resnet18',
         'batch_size': 128,
-        'input_dim': 2048,
+        'input_dim': 512,
         'adaptor_output_dim': 256,
         'num_classes': 2,
         'lr': 0.001,
@@ -303,7 +300,6 @@ def main(variables_dict=None):
     adaptor = Adaptor(input_dim=parameters['input_dim'], projection_dim=parameters['adaptor_output_dim'], data_type='image') # [128, 256]
     classifier = Classifier(input_dim=parameters['adaptor_output_dim'], num_classes=parameters['num_classes']) # [128, 2]
     model = FullModel(extractor, adaptor, classifier).cuda()
-    print(model)
 
     # 损失函数和优化器
     criterion = nn.CrossEntropyLoss()
@@ -349,22 +345,13 @@ def main(variables_dict=None):
    
 if __name__ == '__main__':
     variables_dict = {'lr':np.linspace(1e-6, 1e-5, 5),
-                      'visual_feature_extractor': ['resnet18','resnet50','ViT'],
+                      'visual_feature_extractor': ['resnet18', 'resnet50','ViT'],
                       'LLM_loaded': [False],}
     combinations = list(product(*variables_dict.values()))
 
     for combination in tqdm(combinations):
         input_dict = dict(zip(variables_dict.keys(), combination))
         input_dict['subfolder_name'] = '_'.join([f"{key}_{value}" for key, value in input_dict.items()])
-        input_dict['safety_save_path'] = f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/only_img/no_LLM_multi_img_extractor_20241222"
+        input_dict['safety_save_path'] = f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/only_img/no_LLM_multi_img_extractor"
         os.makedirs(input_dict['safety_save_path'], exist_ok=True)
-
-        # 根据模型的不同改变input_dim
-        if combination[1] == 'resnet50':
-            input_dict['input_dim'] = 2048
-        if combination[1] == 'resnet18':
-            input_dict['input_dim'] = 512
-        if combination[1] == 'ViT':
-            input_dict['input_dim'] = 768
-            
         main(input_dict)
