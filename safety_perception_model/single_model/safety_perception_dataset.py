@@ -58,6 +58,7 @@ class MultimodalSafetyPerceptionDataset(Dataset):
             self.tokenizer = transformers.DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
 
         self.transform = transform
+
         self.img_path = "/data2/cehou/LLM_safety/PlacePulse2.0/photo_dataset/final_photo_dataset/"
         self.paras = paras
 
@@ -83,7 +84,9 @@ class MultimodalSafetyPerceptionDataset(Dataset):
         tokenized_text = self.tokenizer(
             self.data.iloc[idx]["text_description_short"], padding=True, truncation=True, max_length=512
         )
-        encoded_descriptions =  torch.tensor(tokenized_text['input_ids'])
+        encoded_descriptions =  torch.tensor(tokenized_text['input_ids']).float() 
+        # encoded_descriptions转换为long
+        encoded_descriptions = torch.nn.Linear(encoded_descriptions.size(0), 512)(encoded_descriptions)
 
         return image, encoded_descriptions, label
     

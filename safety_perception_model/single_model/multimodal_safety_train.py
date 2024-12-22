@@ -1,4 +1,4 @@
-# python /code/LLM-crime/safety_perception_model/single_model/safety_train_new.py
+# python /code/LLM-crime/safety_perception_model/single_model/multimodal_safety_train.py
 import os
 import torch
 import torch.nn as nn
@@ -346,7 +346,7 @@ def main(variables_dict=None):
         'text_feature_extractor': 'Bert',
         'batch_size': 128,
         'image_input_dim': 512,
-        'text_input_dim': 768,
+        'text_input_dim': 512,
         'adaptor_output_dim': 256,
         'mixer_output_dim': 512,
         'num_classes': 2,
@@ -378,14 +378,14 @@ def main(variables_dict=None):
 
     if parameters['LLM_loaded'] == True:
         LLM_pre_extractor = LLMImageFeaturePrextractor(process=parameters['LLM_image_feature_process'])
-        train_dataset = MultimodalSafetyPerceptionDataset(data_ls[:train_num], paras=parameters)
-        valid_dataset = MultimodalSafetyPerceptionDataset(data_ls[train_num:train_num+valid_num], paras=parameters)
-        test_dataset = MultimodalSafetyPerceptionDataset(data_ls[train_num+valid_num:], paras=parameters)
+        train_dataset = MultimodalSafetyPerceptionDataset(data_ls[:train_num], tokenizer=parameters['text_feature_extractor'], paras=parameters)
+        valid_dataset = MultimodalSafetyPerceptionDataset(data_ls[train_num:train_num+valid_num], tokenizer=parameters['text_feature_extractor'], paras=parameters)
+        test_dataset = MultimodalSafetyPerceptionDataset(data_ls[train_num+valid_num:], tokenizer=parameters['text_feature_extractor'], paras=parameters)
     else:
         LLM_pre_extractor = None
-        train_dataset = MultimodalSafetyPerceptionDataset(data_ls[:train_num], tokenizer='', transform=transform, paras=parameters)
-        valid_dataset = MultimodalSafetyPerceptionDataset(data_ls[train_num:train_num+valid_num], tokenizer='', transform=transform, paras=parameters)
-        test_dataset = MultimodalSafetyPerceptionDataset(data_ls[train_num+valid_num:], tokenizer='', transform=transform, paras=parameters)
+        train_dataset = MultimodalSafetyPerceptionDataset(data_ls[:train_num], tokenizer=parameters['text_feature_extractor'], transform=transform, paras=parameters)
+        valid_dataset = MultimodalSafetyPerceptionDataset(data_ls[train_num:train_num+valid_num], tokenizer=parameters['text_feature_extractor'], transform=transform, paras=parameters)
+        test_dataset = MultimodalSafetyPerceptionDataset(data_ls[train_num+valid_num:], tokenizer=parameters['text_feature_extractor'], transform=transform, paras=parameters)
         
         
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=parameters['batch_size'], shuffle=True)
@@ -397,7 +397,7 @@ def main(variables_dict=None):
     image_adaptor = Adaptor(input_dim=parameters['image_input_dim'], projection_dim=parameters['adaptor_output_dim'], data_type='image') # [128, 256]
     text_adaptor = Adaptor(input_dim=parameters['text_input_dim'], projection_dim=parameters['adaptor_output_dim'], data_type='text') # [128, 256]
     mixer = Mixer(output_dim=parameters['mixer_output_dim'], process='concat') # [128, 512]
-    classifier = Classifier(input_dim=parameters['adaptor_output_dim'], num_classes=parameters['num_classes']) # [128, 2]
+    classifier = Classifier(input_dim=parameters['mixer_output_dim'], num_classes=parameters['num_classes']) # [128, 2]
     model = MultiModalModel(image_extractor, text_extractor, image_adaptor, text_adaptor, mixer, classifier).cuda()
     # 损失函数和优化器
     criterion = nn.CrossEntropyLoss()
