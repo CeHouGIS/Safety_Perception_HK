@@ -9,11 +9,12 @@ import sys
 sys.path.append("/code/LLM-crime/single_model")
 from my_models import TransformerRegressionModel, ResNet50Model, ViTClassifier
 from LLM_feature_extractor import LLaVaFeatureExtractor
+from data_fusion import *
 from PIL import Image
 import torchvision.transforms as transforms
 from safety_perception_dataset import *
 import neptune
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, f1_score
 import matplotlib.pyplot as plt
 import seaborn as sns
 from collections import Counter
@@ -54,6 +55,44 @@ class LLMImageFeaturePrextractor(nn.Module):
             img_feature = self.conv_dim2(img_feature)
         return img_feature
 
+class LLMImageFeaturePrextractor(nn.Module):
+    def __init__(self, process='mean'):
+        super(LLMImageFeaturePrextractor, self).__init__()
+        self.llava_extractor = LLaVaFeatureExtractor()
+        self.conv_dim1 = nn.Conv2d(3, 1, kernel_size=1)  # 输入3通道，输出1通道
+        self.conv_dim2 = nn.Conv2d(3, 3, kernel_size=1)  # 输入3通道，输出3通道
+        self.process = process
+    
+    def forward(self, x):
+        img_feature = self.llava_extractor.image_extractor(x)
+        
+        if self.process == 'mean_dim1':
+            img_feature = img_feature.mean(dim=(1))
+        if self.process == 'mean_dim2':
+            img_feature = img_feature.mean(dim=(2))
+        if self.process == 'mean':
+            img_feature = img_feature.mean(dim=(1,2))
+        if self.process == 'max_dim1':
+            img_feature = img_feature.max(dim=(1))[0]
+        if self.process == 'max_dim2':
+            img_feature = img_feature.max(dim=(2))[0]
+        if self.process == 'reshape':
+            img_feature = img_feature.reshape(-1, img_feature.shape[3], img_feature.shape[4])
+        if self.process == 'conv_dim1':
+            img_feature = self.conv_dim1(img_feature)
+        if self.process == 'conv_dim2':
+            img_feature = self.conv_dim2(img_feature)
+        return img_feature
+
+class LLMTextFeaturePrextractor(nn.Module):
+    def __init__(self):
+        super(LLMTextFeaturePrextractor, self).__init__()
+        self.llava_extractor = LLaVaFeatureExtractor()
+    
+    def forward(self, x):
+        text_feature = self.llava_extractor.text_extractor(x)
+        return text_feature
+
 def get_transforms(resize_size):
     return transforms.Compose(
         [
@@ -63,11 +102,12 @@ def get_transforms(resize_size):
         ]
     )  
 
-class Extractor(nn.Module):
+class ImageExtractor(nn.Module):
     def __init__(self, pretrained_model='resnet18'):
-        super(Extractor, self).__init__()
+        super(ImageExtractor, self).__init__()
         if pretrained_model == 'ViT':
-            pass
+            self.model = models.vit_b_16(pretrained=True)
+            self.model = nn.Sequential(*list(self.model.children())[:-2])
         if pretrained_model == 'resnet50':
             self.model = models.resnet50(pretrained=True)
             # 去掉最后的全连接层
@@ -77,13 +117,30 @@ class Extractor(nn.Module):
             # 去掉最后的全连接层
             self.model = nn.Sequential(*list(self.model.children())[:-1])
             
-
     def forward(self, x):
         # 输入图像 x，返回提取的特征
         with torch.no_grad():  # 禁用梯度计算
             features = self.model(x)
+            if features.dim() == 4:
+                features = F.adaptive_avg_pool2d(features, (1, 1))
         # 返回特征的展平（flatten）形式
         return features.view(features.size(0), -1)
+
+class TextExtractor(nn.Module):
+    def __init__(self, pretrained_model='Bert'):
+        super(TextExtractor, self).__init__()
+        if pretrained_model == 'Bert':
+            self.model = models.BertModel.from_pretrained('bert-base-uncased')
+        if pretrained_model == 'GPT2':
+            self.model = models.GPT2Model.from_pretrained('gpt2')
+        if pretrained_model == 'DistilBert':
+            self.model = models.DistilBertModel.from_pretrained('distilbert-base-uncased')
+
+    def forward(self, x):
+        # 输入文本 x，返回提取的特征
+        with torch.no_grad():
+            features = self.model(x)
+        return features
     
 class Adaptor(nn.Module):
     def __init__(
@@ -112,6 +169,36 @@ class Adaptor(nn.Module):
         x = self.layer_norm(x)
         return x
 
+class Mixer(nn.Module):
+    def __init__(self, output_dim, process='concat'):
+        super(Mixer, self).__init__()
+        self.process = process
+        self.output_dim = output_dim
+        
+
+    def forward(self, image_features, text_features):
+        
+        if self.process == 'concat':
+            output = torch.cat((image_features, text_features), dim=1)
+        
+        elif self.process == 'cross_attention':
+            query = torch.tensor(text_features)  # Batch=16, Sequence Length=10, Embedding=64
+            key = torch.tensor(image_features)
+            value = torch.tensor(image_features)
+
+            cross_attn = CrossAttention(self.output_dim)
+            output, attn_weights = cross_attn(query, key, value)
+    
+        elif self.process == 'MoE':
+            num_experts = 2 
+            moe = models.MoE(image_features.shape[1], text_features.shape[1], self.output_dim, num_experts)
+            output = moe(text_features, image_features)
+
+        elif self.process == 'fc':
+            output = torch.cat((image_features, text_features), dim=1)
+            output = nn.Linear(output.shape[1], self.output_dim)(output)
+            
+        return output
 
 class Classifier(nn.Module):
     def __init__(self, input_dim, num_classes):
@@ -123,26 +210,33 @@ class Classifier(nn.Module):
         # 输入适配后的特征向量，输出分类结果
         return self.fc(x)
 
-class FullModel(nn.Module):
-    def __init__(self, extractor, adaptor, classifier):
-        super(FullModel, self).__init__()
-        self.extractor = extractor
-        self.adaptor = adaptor
+class MultiModalModel(nn.Module):
+    def __init__(self, image_extractor, text_extractor, image_adaptor, text_adaptor, mixer, classifier):
+        super(MultiModalModel, self).__init__()
+        self.image_extractor = image_extractor
+        self.text_extractor = text_extractor
+        self.image_adaptor = image_adaptor
+        self.text_adaptor = text_adaptor
+
+        self.mixer = mixer
         self.classifier = classifier
 
-    def forward(self, x):
+    def forward(self, x_img, x_text):
         # 先通过extractor提取特征，再通过adaptor处理，最后分类
-        features = self.extractor(x)
+        img_features = self.image_extractor(x_img)
+        text_features = self.text_extractor(x_text)
+        adapted_img_features = self.image_adaptor(img_features)
+        adapted_text_features = self.text_adaptor(text_features)
+        mixed_features = self.mixer(adapted_img_features, adapted_text_features)
         # print("extracted feature: ", features.shape)
-        adapted_features = self.adaptor(features)
         # print("adapted feature: ", adapted_features.shape)
-        output = self.classifier(adapted_features)
+        output = self.classifier(mixed_features)
         # print("final feature", output.shape)
         return output
     
 # Early Stopping类
 class EarlyStopping:
-    def __init__(self, patience=20, verbose=False):
+    def __init__(self, patience=5, verbose=False):
         self.patience = patience
         self.verbose = verbose
         self.counter = 0
@@ -202,8 +296,6 @@ def eval(model, valid_loader, criterion, LLM_model=None):
             val_loss += loss.item()
     return val_loss 
 
-from sklearn.metrics import confusion_matrix, f1_score
-
 def model_test(model, test_loader, LLM_model=None):
     if LLM_model is not None:
         LLM_pre_extractor = LLM_model
@@ -243,20 +335,23 @@ def main(variables_dict=None):
     parameters = {
         'train_type': "classification",
         'placepulse_datapath': "/data2/cehou/LLM_safety/PlacePulse2.0/image_perception_score.csv",
-        'safety_save_path' : f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/only_img/",
+        'safety_save_path' : f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/",
         'safety_model_save_name':"model_baseline.pt",
         'subfolder_name': 'baseline',
         
         # model training parameters
         'num_epochs': 999,
         'visual_feature_extractor': 'resnet18',
+        'text_feature_extractor': 'Bert',
         'batch_size': 128,
-        'input_dim': 512,
+        'image_input_dim': 512,
+        'text_input_dim': 768,
         'adaptor_output_dim': 256,
+        'mixer_output_dim': 512,
         'num_classes': 2,
         'lr': 0.001,
         'LLM_loaded': True,
-        'LLM_feature_process': 'mean_dim1',
+        'LLM_image_feature_process': 'mean_dim1',
         'train_loss_list': [],
         'val_loss_list': [],
         'accuracy': None,
@@ -281,7 +376,7 @@ def main(variables_dict=None):
     valid_num = int(len(data_ls) * 0.2)
 
     if parameters['LLM_loaded'] == True:
-        LLM_pre_extractor = LLMImageFeaturePrextractor(process=parameters['LLM_feature_process'])
+        LLM_pre_extractor = LLMImageFeaturePrextractor(process=parameters['LLM_image_feature_process'])
         train_dataset = SafetyPerceptionDataset(data_ls[:train_num], paras=parameters)
         valid_dataset = SafetyPerceptionDataset(data_ls[train_num:train_num+valid_num], paras=parameters)
         test_dataset = SafetyPerceptionDataset(data_ls[train_num+valid_num:], paras=parameters)
@@ -296,11 +391,13 @@ def main(variables_dict=None):
     valid_loader = torch.utils.data.DataLoader(valid_dataset, batch_size=parameters['batch_size'])
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=parameters['batch_size'])
 
-    extractor = Extractor(pretrained_model=parameters['visual_feature_extractor']) # [128, 512]
-    adaptor = Adaptor(input_dim=parameters['input_dim'], projection_dim=parameters['adaptor_output_dim'], data_type='image') # [128, 256]
+    image_extractor = ImageExtractor(pretrained_model=parameters['visual_feature_extractor']) # [128, 512]
+    text_extractor = TextExtractor(pretrained_model=parameters['text_feature_extractor']) # [128, 768]
+    image_adaptor = Adaptor(input_dim=parameters['image_input_dim'], projection_dim=parameters['adaptor_output_dim'], data_type='image') # [128, 256]
+    text_adaptor = Adaptor(input_dim=parameters['text_input_dim'], projection_dim=parameters['adaptor_output_dim'], data_type='text') # [128, 256]
+    mixer = Mixer(output_dim=parameters['mixer_output_dim'], process='concat') # [128, 512]
     classifier = Classifier(input_dim=parameters['adaptor_output_dim'], num_classes=parameters['num_classes']) # [128, 2]
-    model = FullModel(extractor, adaptor, classifier).cuda()
-
+    model = MultiModalModel(image_extractor, text_extractor, image_adaptor, text_adaptor, mixer, classifier).cuda()
     # 损失函数和优化器
     criterion = nn.CrossEntropyLoss()
     # criterion = nn.BCELoss()  # 二分类交叉熵损失
@@ -319,11 +416,12 @@ def main(variables_dict=None):
         parameters['val_loss_list'].append(val_loss / len(valid_loader))
         # 触发早停机制
         early_stopping(val_loss / len(valid_loader))
+        if early_stopping.best_loss == val_loss / len(valid_loader):
+            torch.save(model.state_dict(), os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], parameters['safety_model_save_name']))
+            print("Model saved at ", os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], parameters['safety_model_save_name']))
+
         if early_stopping.early_stop:
             print("Early stopping")
-            
-            torch.save(model.state_dict(), os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], parameters['safety_model_save_name']))
-            print("Model saved at ", os.path.join(parameters['safety_save_path'] , parameters['subfolder_name'], parameters['safety_model_save_name']))
             break
 
     torch.save(model.state_dict(), os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], parameters['safety_model_save_name']))
@@ -345,13 +443,23 @@ def main(variables_dict=None):
    
 if __name__ == '__main__':
     variables_dict = {'lr':np.linspace(1e-6, 1e-5, 5),
-                      'visual_feature_extractor': ['resnet18', 'resnet50','ViT'],
+                      'visual_feature_extractor': ['ViT'],
+                      'text_feature_extractor': ['Bert'],
                       'LLM_loaded': [False],}
     combinations = list(product(*variables_dict.values()))
 
     for combination in tqdm(combinations):
         input_dict = dict(zip(variables_dict.keys(), combination))
         input_dict['subfolder_name'] = '_'.join([f"{key}_{value}" for key, value in input_dict.items()])
-        input_dict['safety_save_path'] = f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/only_img/no_LLM_multi_img_extractor"
+        input_dict['safety_save_path'] = f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/no_LLM_ViT_Bert_20241222"
         os.makedirs(input_dict['safety_save_path'], exist_ok=True)
+
+        # 根据模型的不同改变input_dim
+        if combination[1] == 'resnet50':
+            input_dict['image_input_dim'] = 2048
+        if combination[1] == 'resnet18':
+            input_dict['image_input_dim'] = 512
+        if combination[1] == 'ViT':
+            input_dict['image_input_dim'] = 768
+            
         main(input_dict)

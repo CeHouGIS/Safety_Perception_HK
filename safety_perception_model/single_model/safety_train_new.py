@@ -323,11 +323,13 @@ def main(variables_dict=None):
         parameters['val_loss_list'].append(val_loss / len(valid_loader))
         # 触发早停机制
         early_stopping(val_loss / len(valid_loader))
+
+        if early_stopping.best_loss == val_loss / len(valid_loader):
+            torch.save(model.state_dict(), os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], parameters['safety_model_save_name']))
+            print("Model saved at ", os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], parameters['safety_model_save_name']))
+            
         if early_stopping.early_stop:
             print("Early stopping")
-            
-            torch.save(model.state_dict(), os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], parameters['safety_model_save_name']))
-            print("Model saved at ", os.path.join(parameters['safety_save_path'] , parameters['subfolder_name'], parameters['safety_model_save_name']))
             break
 
     torch.save(model.state_dict(), os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], parameters['safety_model_save_name']))
