@@ -76,18 +76,21 @@ class TextSafetyPerceptionDataset(Dataset):
             self.data.iloc[idx]["text_description_short"], padding=True, truncation=True, max_length=512
         )
         encoded_descriptions =  torch.tensor(tokenized_text['input_ids']).float() 
+        attention_mask = torch.tensor(tokenized_text['attention_mask']).float()
         # Pad the sequence with zeros to make it 512 in length
 
         padding_length = 512 - len(encoded_descriptions)
         if padding_length > 0:
             encoded_descriptions = torch.cat((encoded_descriptions, torch.zeros(padding_length)), dim=0)
+            attention_mask = torch.cat((attention_mask, torch.zeros(padding_length)), dim=0)
         elif padding_length < 0:
             encoded_descriptions = encoded_descriptions[:512]
+            attention_mask = attention_mask[:512]
 
         # encoded_descriptions转换为long
         # encoded_descriptions = torch.nn.Linear(encoded_descriptions.size(0), 512)(encoded_descriptions)
 
-        return encoded_descriptions, label
+        return (encoded_descriptions, attention_mask), label
 
 class MultimodalSafetyPerceptionDataset(Dataset):
     def __init__(self, data, tokenizer=None, transform=None, paras=None):
@@ -133,16 +136,21 @@ class MultimodalSafetyPerceptionDataset(Dataset):
             self.data.iloc[idx]["text_description_short"], padding=True, truncation=True, max_length=512
         )
         encoded_descriptions =  torch.tensor(tokenized_text['input_ids']).float() 
+        attention_mask = torch.tensor(tokenized_text['attention_mask']).float()
+        # Pad the sequence with zeros to make it 512 in length
 
         padding_length = 512 - len(encoded_descriptions)
         if padding_length > 0:
             encoded_descriptions = torch.cat((encoded_descriptions, torch.zeros(padding_length)), dim=0)
+            attention_mask = torch.cat((attention_mask, torch.zeros(padding_length)), dim=0)
         elif padding_length < 0:
             encoded_descriptions = encoded_descriptions[:512]
-        # # encoded_descriptions转换为long
+            attention_mask = attention_mask[:512]
+
+        # encoded_descriptions转换为long
         # encoded_descriptions = torch.nn.Linear(encoded_descriptions.size(0), 512)(encoded_descriptions)
 
-        return image, encoded_descriptions, label
+        return image, (encoded_descriptions, attention_mask), label
     
 def get_transforms(resize_size):
     return transforms.Compose(

@@ -40,20 +40,23 @@ class TextExtractor(nn.Module):
     def __init__(self, pretrained_model='Bert'):
         super(TextExtractor, self).__init__()
         if pretrained_model == 'Bert':
-            self.model = transformers.BertTokenizer.from_pretrained('bert-base-uncased')
+            self.model = transformers.BertModel.from_pretrained('bert-base-uncased')
         if pretrained_model == 'GPT2':
-            self.model = transformers.GPT2Tokenizer.from_pretrained('gpt2')
+            self.model = transformers.GPT2Model.from_pretrained('gpt2')
         if pretrained_model == 'DistilBert':
             self.model = transformers.DistilBertModel.from_pretrained('distilbert-base-uncased')
         if pretrained_model == 'LLM':
-            self.model = transformers.BertTokenizer.from_pretrained('bert-base-uncased')
+            self.model = transformers.BertModel.from_pretrained('bert-base-uncased')
 
+        self.target_token_idx = 0
     def forward(self, x):
-        # 输入文本 x，返回提取的特征
         with torch.no_grad():
-            features = self.model(x)
-        return features
+            output = self.model(input_ids=x['input_ids'], attention_mask=x['attention_mask'])
+            last_hidden_state = output.last_hidden_state
+        return last_hidden_state[:, self.target_token_idx, :]
     
+
+
 class Adaptor(nn.Module):
     def __init__(
         self,
@@ -80,37 +83,6 @@ class Adaptor(nn.Module):
         x = x + projected
         x = self.layer_norm(x)
         return x
-
-class Mixer(nn.Module):
-    def __init__(self, output_dim, process='concat'):
-        super(Mixer, self).__init__()
-        self.process = process
-        self.output_dim = output_dim
-        
-
-    def forward(self, image_features, text_features):
-        
-        if self.process == 'concat':
-            output = torch.cat((image_features, text_features), dim=1)
-        
-        elif self.process == 'cross_attention':
-            query = torch.tensor(text_features)  # Batch=16, Sequence Length=10, Embedding=64
-            key = torch.tensor(image_features)
-            value = torch.tensor(image_features)
-
-            cross_attn = CrossAttention(self.output_dim)
-            output, attn_weights = cross_attn(query, key, value)
-    
-        elif self.process == 'MoE':
-            num_experts = 2 
-            moe = models.MoE(image_features.shape[1], text_features.shape[1], self.output_dim, num_experts)
-            output = moe(text_features, image_features)
-
-        elif self.process == 'fc':
-            output = torch.cat((image_features, text_features), dim=1)
-            output = nn.Linear(output.shape[1], self.output_dim)(output)
-            
-        return output
 
 class Classifier(nn.Module):
     def __init__(self, input_dim, num_classes):
@@ -280,14 +252,14 @@ def main(variables_dict=None):
     valid_num = int(len(data_ls) * 0.2)
 
     if parameters['LLM_loaded'] == True:
-        train_dataset = MultimodalSafetyPerceptionDataset(data_ls[:train_num], tokenizer=parameters['text_feature_extractor'], paras=parameters)
-        valid_dataset = MultimodalSafetyPerceptionDataset(data_ls[train_num:train_num+valid_num], tokenizer=parameters['text_feature_extractor'], paras=parameters)
-        test_dataset = MultimodalSafetyPerceptionDataset(data_ls[train_num+valid_num:], tokenizer=parameters['text_feature_extractor'], paras=parameters)
+        train_dataset = TextSafetyPerceptionDataset(data_ls[:train_num], tokenizer=parameters['text_feature_extractor'], paras=parameters)
+        valid_dataset = TextSafetyPerceptionDataset(data_ls[train_num:train_num+valid_num], tokenizer=parameters['text_feature_extractor'], paras=parameters)
+        test_dataset = TextSafetyPerceptionDataset(data_ls[train_num+valid_num:], tokenizer=parameters['text_feature_extractor'], paras=parameters)
     else:
         LLM_pre_extractor = None
-        train_dataset = MultimodalSafetyPerceptionDataset(data_ls[:train_num], tokenizer=parameters['text_feature_extractor'], transform=transform, paras=parameters)
-        valid_dataset = MultimodalSafetyPerceptionDataset(data_ls[train_num:train_num+valid_num], tokenizer=parameters['text_feature_extractor'], transform=transform, paras=parameters)
-        test_dataset = MultimodalSafetyPerceptionDataset(data_ls[train_num+valid_num:], tokenizer=parameters['text_feature_extractor'], transform=transform, paras=parameters)
+        train_dataset = TextSafetyPerceptionDataset(data_ls[:train_num], tokenizer=parameters['text_feature_extractor'], transform=transform, paras=parameters)
+        valid_dataset = TextSafetyPerceptionDataset(data_ls[train_num:train_num+valid_num], tokenizer=parameters['text_feature_extractor'], transform=transform, paras=parameters)
+        test_dataset = TextSafetyPerceptionDataset(data_ls[train_num+valid_num:], tokenizer=parameters['text_feature_extractor'], transform=transform, paras=parameters)
         
         
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=parameters['batch_size'], shuffle=True)
@@ -342,9 +314,8 @@ def main(variables_dict=None):
     plt.savefig(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], 'confusion_matrix.png'), dpi=300, bbox_inches='tight')
    
 if __name__ == '__main__':
-    variables_dict = {'lr':np.linspace(1e-6, 1e-5, 5),
-                      'visual_feature_extractor': ['ViT'],
-                      'text_feature_extractor': ['Bert'],
+    variables_dict = {'lr': [0.1, 0.01, 0.001, 1e-4, 1e-5, 1e-6, 1e-7],
+                      'text_feature_extractor': ['Bert', 'GPT2', 'DistilBert'],
                       'LLM_loaded': [False],}
     combinations = list(product(*variables_dict.values()))
 
