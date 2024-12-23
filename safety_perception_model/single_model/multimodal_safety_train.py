@@ -288,11 +288,11 @@ def eval(model, valid_loader, criterion, LLM_model=None):
     model.eval()  # 切换到评估模式
     val_loss = 0.0
     with torch.no_grad():  # 关闭梯度计算，节省内存
-        for data, target in valid_loader:
+        for data, description, target in valid_loader:
             if LLM_model is not None:
                 data = LLM_pre_extractor([data[i] for i in range(len(data))])
             data, description, target = data.cuda(), description.cuda(), target.cuda().long()
-            output = model(data)
+            output = model(data, description)
             loss = criterion(output, target)
             val_loss += loss.item()
     return val_loss 
@@ -308,8 +308,8 @@ def model_test(model, test_loader, LLM_model=None):
         for data, description, target in test_loader:
             if LLM_model is not None:
                 data = LLM_pre_extractor([data[i] for i in range(len(data))])
-            data, target = data.cuda(), target.cuda().long()
-            output = model(data)
+            data, description, target = data.cuda(), description.cuda(), target.cuda().long()
+            output = model(data, description)
             _, predicted = torch.max(output.data, 1)
             all_preds.extend(predicted.cpu().numpy())
             all_labels.extend(target.cpu().numpy())

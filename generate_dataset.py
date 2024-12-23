@@ -1,8 +1,8 @@
 # generate baseline data
 # python /code/LLM-crime/generate_dataset.py --visible-device "cuda:3" --age "baseline" --gender "baseline" --location "baseline" --event "baseline" --img-type "PlacePulse" --start-from 0 --data-num 10000
 
-# python /code/LLM-crime/generate_dataset.py --visible-device "2,3" --age "30" --gender "male" --location "HongKong" --event "traffic accident" --img-type "GSV" --start-from 3054 --data-num 4000 --batch-size 5
-# python /code/LLM-crime/generate_dataset.py --visible-device "2,3" --age "30" --gender "female" --location "HongKong" --event "traffic accident" --img-type "GSV" --start-from 100 --data-num 4989 --batch-size 4
+# python /code/LLM-crime/generate_dataset.py --visible-device "2,3" --age "60" --gender "male" --location "HongKong" --event "traffic accident" --img-type "GSV" --start-from 0 --data-num 4989 --batch-size 4
+# python /code/LLM-crime/generate_dataset.py --visible-device "2,3" --age "60" --gender "female" --location "HongKong" --event "traffic accident" --img-type "GSV" --start-from 100 --data-num 4989 --batch-size 4
 
 # generate specific data
 # python /code/LLM-crime/generate_dataset.py --device-id "cuda:2" --age "30" --gender "female" --location "HongKong" --event "murder" --specific-img True --img-type "PlacePulse" --start-from 351
@@ -235,7 +235,7 @@ if __name__ == '__main__':
             question_list = [[
                 [f"Please design a car accident-focused street safety perception system list briefly and include different information that people pay attention to in street perception by looking around the built environment (elements of the urban environment that Street View images can capture). Please pay special attention to the fact that people of different ages and genders may have different perceptions and reactions. Note that we cannot provide subjective information about residents' personal experiences, so look for key points from the objective environment, please answer this question within 300 words."],
                 [f"When evaluating the safety perception of specific criminal behaviors, it is important to consider the sensitivity of different demographic groups to their environment. For {profile['gender']}, which parts of the image would you emphasize? Please answer this question within 300 words.", GSV_imgs[i]],
-                [f"For {profile['age']}, what factors in the image do you think would impact their sense of safety? Please answer this question within 300 words."],
+                [f"For people in the age of {profile['age']}, what factors in the image do you think would impact their sense of safety? Please answer this question within 300 words."],
                 [f"When discussing the safety perception in {profile['location']}, what is the characteristics of the built environment, and how these characteristics will influence people's safety perception? Please answer this question within 300 words."]
             ] for i in range(len(sub_range))]
 
