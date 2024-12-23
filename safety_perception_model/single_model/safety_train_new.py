@@ -20,6 +20,7 @@ from collections import Counter
 from sklearn.metrics import r2_score
 import shutil
 from itertools import product
+from torchvision.models.feature_extraction import create_feature_extractor, get_graph_node_names
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 
@@ -66,9 +67,12 @@ def get_transforms(resize_size):
 class Extractor(nn.Module):
     def __init__(self, pretrained_model='resnet18'):
         super(Extractor, self).__init__()
+        self.pretrained_model = pretrained_model
         if pretrained_model == 'ViT':
-            self.model = models.vit_b_16(pretrained=True)
-            self.model = nn.Sequential(*list(self.model.children())[:-2])
+            # nodes, _ = get_graph_node_names(models.vit_b_16(pretrained=True))
+            # print(nodes)
+            self.model = create_feature_extractor(models.vit_b_16(pretrained=True), return_nodes={'getitem_5': 'features'})
+
         if pretrained_model == 'resnet50':
             self.model = models.resnet50(pretrained=True)
             # 去掉最后的全连接层
@@ -82,11 +86,16 @@ class Extractor(nn.Module):
     def forward(self, x):
         # 输入图像 x，返回提取的特征
         with torch.no_grad():  # 禁用梯度计算
-            features = self.model(x)
-            if features.dim() == 4:
-                features = F.adaptive_avg_pool2d(features, (1, 1))
+            if self.pretrained_model == 'ViT':
+                features = self.model(x)['features']
+                # print(features.shape)
+            else:
+                features = self.model(x)
+            # if features.dim() == 4:
+            #     features = F.adaptive_avg_pool2d(features, (1, 1))
         # 返回特征的展平（flatten）形式
-        return features.view(features.size(0), -1)
+        return features
+        # return features.view(features.size(0), -1)
     
 class Adaptor(nn.Module):
     def __init__(
@@ -350,15 +359,15 @@ def main(variables_dict=None):
     plt.savefig(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], 'confusion_matrix.png'), dpi=300, bbox_inches='tight')
    
 if __name__ == '__main__':
-    variables_dict = {'lr':np.linspace(1e-6, 1e-5, 5),
-                      'visual_feature_extractor': ['resnet18','resnet50','ViT'],
+    variables_dict = {'lr':[0.1, 0.01, 0.001, 1e-4, 1e-5, 1e-6, 1e-7], # np.linspace(1e-6, 1e-5, 5)
+                      'visual_feature_extractor': ['ViT'],
                       'LLM_loaded': [False],}
     combinations = list(product(*variables_dict.values()))
 
     for combination in tqdm(combinations):
         input_dict = dict(zip(variables_dict.keys(), combination))
         input_dict['subfolder_name'] = '_'.join([f"{key}_{value}" for key, value in input_dict.items()])
-        input_dict['safety_save_path'] = f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/only_img/no_LLM_multi_img_extractor_20241222"
+        input_dict['safety_save_path'] = f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/only_img/no_LLM_ViT_20241223"
         os.makedirs(input_dict['safety_save_path'], exist_ok=True)
 
         # 根据模型的不同改变input_dim
