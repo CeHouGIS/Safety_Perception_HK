@@ -27,35 +27,6 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 # 创建模型实例
 
-class LLMImageFeaturePrextractor(nn.Module):
-    def __init__(self, process='mean'):
-        super(LLMImageFeaturePrextractor, self).__init__()
-        self.llava_extractor = LLaVaFeatureExtractor()
-        self.conv_dim1 = nn.Conv2d(3, 1, kernel_size=1)  # 输入3通道，输出1通道
-        self.conv_dim2 = nn.Conv2d(3, 3, kernel_size=1)  # 输入3通道，输出3通道
-        self.process = process
-    
-    def forward(self, x):
-        img_feature = self.llava_extractor.image_extractor(x)
-        
-        if self.process == 'mean_dim1':
-            img_feature = img_feature.mean(dim=(1))
-        if self.process == 'mean_dim2':
-            img_feature = img_feature.mean(dim=(2))
-        if self.process == 'mean':
-            img_feature = img_feature.mean(dim=(1,2))
-        if self.process == 'max_dim1':
-            img_feature = img_feature.max(dim=(1))[0]
-        if self.process == 'max_dim2':
-            img_feature = img_feature.max(dim=(2))[0]
-        if self.process == 'reshape':
-            img_feature = img_feature.reshape(-1, img_feature.shape[3], img_feature.shape[4])
-        if self.process == 'conv_dim1':
-            img_feature = self.conv_dim1(img_feature)
-        if self.process == 'conv_dim2':
-            img_feature = self.conv_dim2(img_feature)
-        return img_feature
-
 class LLMTextFeaturePrextractor(nn.Module):
     def __init__(self):
         super(LLMTextFeaturePrextractor, self).__init__()
@@ -64,39 +35,6 @@ class LLMTextFeaturePrextractor(nn.Module):
     def forward(self, x):
         text_feature = self.llava_extractor.text_extractor(x)
         return text_feature
-
-def get_transforms(resize_size):
-    return transforms.Compose(
-        [
-            transforms.Resize((resize_size[0], resize_size[1])),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        ]
-    )  
-
-class ImageExtractor(nn.Module):
-    def __init__(self, pretrained_model='resnet18'):
-        super(ImageExtractor, self).__init__()
-        if pretrained_model == 'ViT':
-            self.model = models.vit_b_16(pretrained=True)
-            self.model = nn.Sequential(*list(self.model.children())[:-2])
-        if pretrained_model == 'resnet50':
-            self.model = models.resnet50(pretrained=True)
-            # 去掉最后的全连接层
-            self.model = nn.Sequential(*list(self.model.children())[:-1])
-        if pretrained_model == 'resnet18':
-            self.model = models.resnet18(pretrained=True)
-            # 去掉最后的全连接层
-            self.model = nn.Sequential(*list(self.model.children())[:-1])
-            
-    def forward(self, x):
-        # 输入图像 x，返回提取的特征
-        with torch.no_grad():  # 禁用梯度计算
-            features = self.model(x)
-            if features.dim() == 4:
-                features = F.adaptive_avg_pool2d(features, (1, 1))
-        # 返回特征的展平（flatten）形式
-        return features.view(features.size(0), -1)
 
 class TextExtractor(nn.Module):
     def __init__(self, pretrained_model='Bert'):
@@ -107,6 +45,8 @@ class TextExtractor(nn.Module):
             self.model = transformers.GPT2Tokenizer.from_pretrained('gpt2')
         if pretrained_model == 'DistilBert':
             self.model = transformers.DistilBertModel.from_pretrained('distilbert-base-uncased')
+        if pretrained_model == 'LLM':
+            self.model = transformers.BertTokenizer.from_pretrained('bert-base-uncased')
 
     def forward(self, x):
         # 输入文本 x，返回提取的特征
@@ -182,27 +122,20 @@ class Classifier(nn.Module):
         # 输入适配后的特征向量，输出分类结果
         return self.fc(x)
 
-class MultiModalModel(nn.Module):
-    def __init__(self, image_extractor, text_extractor, image_adaptor, text_adaptor, mixer, classifier):
-        super(MultiModalModel, self).__init__()
-        self.image_extractor = image_extractor
+class TextModel(nn.Module):
+    def __init__(self, text_extractor, text_adaptor, classifier):
+        super(TextModel, self).__init__()
         self.text_extractor = text_extractor
-        self.image_adaptor = image_adaptor
         self.text_adaptor = text_adaptor
-
-        self.mixer = mixer
         self.classifier = classifier
 
-    def forward(self, x_img, x_text):
+    def forward(self, x_text):
         # 先通过extractor提取特征，再通过adaptor处理，最后分类
-        img_features = self.image_extractor(x_img)
         text_features = self.text_extractor(x_text)
-        adapted_img_features = self.image_adaptor(img_features)
         adapted_text_features = self.text_adaptor(text_features)
-        mixed_features = self.mixer(adapted_img_features, adapted_text_features)
         # print("extracted feature: ", features.shape)
         # print("adapted feature: ", adapted_features.shape)
-        output = self.classifier(mixed_features)
+        output = self.classifier(adapted_text_features)
         # print("final feature", output.shape)
         return output
     
@@ -233,14 +166,14 @@ def train(model, pbar, criterion, optimizer, LLM_model=None):
         LLM_pre_extractor = LLM_model
     model.train()  # 切换到训练模式
     running_loss = 0.0
-    for batch_idx, (data, description, target) in enumerate(pbar):
+    for batch_idx, (data, target) in enumerate(pbar):
         if LLM_model is not None:
             data = LLM_pre_extractor([data[i] for i in range(len(data))])
     
         # 将数据和目标移到GPU（如果有的话）
-        data, description, target = data.cuda(), description.cuda(), target.cuda()
+        data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()  # 清零梯度
-        output = model(data, description)  # 获取模型输出
+        output = model(data)  # 获取模型输出
         loss = criterion(output, target)
 
         # target_one_hot = F.one_hot(target, num_classes=2).float()
@@ -259,11 +192,11 @@ def eval(model, valid_loader, criterion, LLM_model=None):
     model.eval()  # 切换到评估模式
     val_loss = 0.0
     with torch.no_grad():  # 关闭梯度计算，节省内存
-        for data, description, target in valid_loader:
+        for data, target in valid_loader:
             if LLM_model is not None:
                 data = LLM_pre_extractor([data[i] for i in range(len(data))])
-            data, description, target = data.cuda(), description.cuda(), target.cuda().long()
-            output = model(data, description)
+            data, target = data.cuda(), target.cuda().long()
+            output = model(data)
             loss = criterion(output, target)
             val_loss += loss.item()
     return val_loss 
@@ -276,11 +209,11 @@ def model_test(model, test_loader, LLM_model=None):
     all_labels = []
 
     with torch.no_grad():  # 关闭梯度计算，节省内存
-        for data, description, target in test_loader:
+        for data, target in test_loader:
             if LLM_model is not None:
                 data = LLM_pre_extractor([data[i] for i in range(len(data))])
-            data, description, target = data.cuda(), description.cuda(), target.cuda().long()
-            output = model(data, description)
+            data, target = data.cuda(), target.cuda().long()
+            output = model(data)
             _, predicted = torch.max(output.data, 1)
             all_preds.extend(predicted.cpu().numpy())
             all_labels.extend(target.cpu().numpy())
@@ -313,7 +246,6 @@ def main(variables_dict=None):
         
         # model training parameters
         'num_epochs': 999,
-        'visual_feature_extractor': 'resnet18',
         'text_feature_extractor': 'Bert',
         'batch_size': 128,
         'image_input_dim': 512,
@@ -348,7 +280,6 @@ def main(variables_dict=None):
     valid_num = int(len(data_ls) * 0.2)
 
     if parameters['LLM_loaded'] == True:
-        LLM_pre_extractor = LLMImageFeaturePrextractor(process=parameters['LLM_image_feature_process'])
         train_dataset = MultimodalSafetyPerceptionDataset(data_ls[:train_num], tokenizer=parameters['text_feature_extractor'], paras=parameters)
         valid_dataset = MultimodalSafetyPerceptionDataset(data_ls[train_num:train_num+valid_num], tokenizer=parameters['text_feature_extractor'], paras=parameters)
         test_dataset = MultimodalSafetyPerceptionDataset(data_ls[train_num+valid_num:], tokenizer=parameters['text_feature_extractor'], paras=parameters)
@@ -363,13 +294,10 @@ def main(variables_dict=None):
     valid_loader = torch.utils.data.DataLoader(valid_dataset, batch_size=parameters['batch_size'])
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=parameters['batch_size'])
 
-    image_extractor = ImageExtractor(pretrained_model=parameters['visual_feature_extractor']) # [128, 512]
     text_extractor = TextExtractor(pretrained_model=parameters['text_feature_extractor']) # [128, 768]
-    image_adaptor = Adaptor(input_dim=parameters['image_input_dim'], projection_dim=parameters['adaptor_output_dim'], data_type='image') # [128, 256]
     text_adaptor = Adaptor(input_dim=parameters['text_input_dim'], projection_dim=parameters['adaptor_output_dim'], data_type='text') # [128, 256]
-    mixer = Mixer(output_dim=parameters['mixer_output_dim'], process='concat') # [128, 512]
     classifier = Classifier(input_dim=parameters['mixer_output_dim'], num_classes=parameters['num_classes']) # [128, 2]
-    model = MultiModalModel(image_extractor, text_extractor, image_adaptor, text_adaptor, mixer, classifier).cuda()
+    model = TextModel(text_extractor, text_adaptor, classifier).cuda()
     # 损失函数和优化器
     criterion = nn.CrossEntropyLoss()
     # criterion = nn.BCELoss()  # 二分类交叉熵损失

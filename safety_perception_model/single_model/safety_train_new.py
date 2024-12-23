@@ -91,11 +91,11 @@ class Extractor(nn.Module):
                 # print(features.shape)
             else:
                 features = self.model(x)
+                features = features.view(features.size(0), -1)
             # if features.dim() == 4:
             #     features = F.adaptive_avg_pool2d(features, (1, 1))
         # 返回特征的展平（flatten）形式
         return features
-        # return features.view(features.size(0), -1)
     
 class Adaptor(nn.Module):
     def __init__(

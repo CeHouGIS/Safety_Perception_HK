@@ -40,6 +40,55 @@ class SafetyPerceptionDataset(Dataset):
 
         return image, label
 
+class TextSafetyPerceptionDataset(Dataset):
+    def __init__(self, data, tokenizer=None, transform=None, paras=None):
+        """
+        Args:
+            data (list or np.array): List or array of data samples.
+            labels (list or np.array): List or array of labels corresponding to the data samples.
+            transform (callable, optional): Optional transform to be applied on a sample.
+        """
+        self.data = data
+        if tokenizer == 'Bert':
+            self.tokenizer = transformers.BertTokenizer.from_pretrained('bert-base-uncased')
+        elif tokenizer == 'GPT2':
+            self.tokenizer = transformers.GPT2Tokenizer.from_pretrained('gpt2')
+        elif tokenizer == 'DistilBert':
+            self.tokenizer = transformers.DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
+
+        self.transform = transform
+
+        self.img_path = "/data2/cehou/LLM_safety/PlacePulse2.0/photo_dataset/final_photo_dataset/"
+        self.paras = paras
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        
+        if self.paras['train_type'] == 'classification':
+            label = self.data.iloc[idx]["label"]
+            # label = label * 100 // 5
+        elif self.paras['train_type'] == 'regression':
+            label = self.data.iloc[idx]["Score"]
+            
+        tokenized_text = self.tokenizer(
+            self.data.iloc[idx]["text_description_short"], padding=True, truncation=True, max_length=512
+        )
+        encoded_descriptions =  torch.tensor(tokenized_text['input_ids']).float() 
+        # Pad the sequence with zeros to make it 512 in length
+
+        padding_length = 512 - len(encoded_descriptions)
+        if padding_length > 0:
+            encoded_descriptions = torch.cat((encoded_descriptions, torch.zeros(padding_length)), dim=0)
+        elif padding_length < 0:
+            encoded_descriptions = encoded_descriptions[:512]
+
+        # encoded_descriptions转换为long
+        # encoded_descriptions = torch.nn.Linear(encoded_descriptions.size(0), 512)(encoded_descriptions)
+
+        return encoded_descriptions, label
+
 class MultimodalSafetyPerceptionDataset(Dataset):
     def __init__(self, data, tokenizer=None, transform=None, paras=None):
         """
@@ -66,7 +115,6 @@ class MultimodalSafetyPerceptionDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):
-        image_path = f"{self.img_path}/{self.data.iloc[idx]['Image_ID']}.jpg"
         
         image = np.array(Image.open(f"{self.img_path}/{self.data.iloc[idx]['Image_ID']}.jpg"))
         image = Image.fromarray(image)
@@ -85,8 +133,14 @@ class MultimodalSafetyPerceptionDataset(Dataset):
             self.data.iloc[idx]["text_description_short"], padding=True, truncation=True, max_length=512
         )
         encoded_descriptions =  torch.tensor(tokenized_text['input_ids']).float() 
-        # encoded_descriptions转换为long
-        encoded_descriptions = torch.nn.Linear(encoded_descriptions.size(0), 512)(encoded_descriptions)
+
+        padding_length = 512 - len(encoded_descriptions)
+        if padding_length > 0:
+            encoded_descriptions = torch.cat((encoded_descriptions, torch.zeros(padding_length)), dim=0)
+        elif padding_length < 0:
+            encoded_descriptions = encoded_descriptions[:512]
+        # # encoded_descriptions转换为long
+        # encoded_descriptions = torch.nn.Linear(encoded_descriptions.size(0), 512)(encoded_descriptions)
 
         return image, encoded_descriptions, label
     
