@@ -1,4 +1,4 @@
-# python /code/LLM-crime/safety_perception_model/single_model/multimodal_safety_train.py
+# python /code/LLM-crime/safety_perception_model/single_model/text_safety_train.py
 import os
 import torch
 import torch.nn as nn
@@ -22,7 +22,7 @@ from collections import Counter
 from sklearn.metrics import r2_score
 import shutil
 from itertools import product
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 
 
 # 创建模型实例
@@ -49,9 +49,9 @@ class TextExtractor(nn.Module):
             self.model = transformers.BertModel.from_pretrained('bert-base-uncased')
 
         self.target_token_idx = 0
-    def forward(self, x):
+    def forward(self, input_ids, attention_mask):
         with torch.no_grad():
-            output = self.model(input_ids=x['input_ids'], attention_mask=x['attention_mask'])
+            output = self.model(input_ids=input_ids, attention_mask=attention_mask)
             last_hidden_state = output.last_hidden_state
         return last_hidden_state[:, self.target_token_idx, :]
     
@@ -101,9 +101,9 @@ class TextModel(nn.Module):
         self.text_adaptor = text_adaptor
         self.classifier = classifier
 
-    def forward(self, x_text):
+    def forward(self, x_text, attention_mask):
         # 先通过extractor提取特征，再通过adaptor处理，最后分类
-        text_features = self.text_extractor(x_text)
+        text_features = self.text_extractor(x_text, attention_mask)
         adapted_text_features = self.text_adaptor(text_features)
         # print("extracted feature: ", features.shape)
         # print("adapted feature: ", adapted_features.shape)
@@ -138,14 +138,14 @@ def train(model, pbar, criterion, optimizer, LLM_model=None):
         LLM_pre_extractor = LLM_model
     model.train()  # 切换到训练模式
     running_loss = 0.0
-    for batch_idx, (data, target) in enumerate(pbar):
+    for batch_idx, ((data, attention_mask), target) in enumerate(pbar):
         if LLM_model is not None:
             data = LLM_pre_extractor([data[i] for i in range(len(data))])
     
         # 将数据和目标移到GPU（如果有的话）
-        data, target = data.cuda(), target.cuda()
+        data, attention_mask, target = data.cuda().long(), attention_mask.cuda().long(), target.cuda()
         optimizer.zero_grad()  # 清零梯度
-        output = model(data)  # 获取模型输出
+        output = model(data,attention_mask)  # 获取模型输出
         loss = criterion(output, target)
 
         # target_one_hot = F.one_hot(target, num_classes=2).float()
@@ -164,11 +164,11 @@ def eval(model, valid_loader, criterion, LLM_model=None):
     model.eval()  # 切换到评估模式
     val_loss = 0.0
     with torch.no_grad():  # 关闭梯度计算，节省内存
-        for data, target in valid_loader:
+        for ((data, attention_mask), target) in valid_loader:
             if LLM_model is not None:
                 data = LLM_pre_extractor([data[i] for i in range(len(data))])
-            data, target = data.cuda(), target.cuda().long()
-            output = model(data)
+            data, attention_mask, target = data.cuda().long(), attention_mask.cuda().long(), target.cuda().long()
+            output = model(data,attention_mask)
             loss = criterion(output, target)
             val_loss += loss.item()
     return val_loss 
@@ -181,11 +181,11 @@ def model_test(model, test_loader, LLM_model=None):
     all_labels = []
 
     with torch.no_grad():  # 关闭梯度计算，节省内存
-        for data, target in test_loader:
+        for ((data, attention_mask), target) in test_loader:
             if LLM_model is not None:
                 data = LLM_pre_extractor([data[i] for i in range(len(data))])
-            data, target = data.cuda(), target.cuda().long()
-            output = model(data)
+            data, attention_mask, target = data.cuda().long(), attention_mask.cuda().long(), target.cuda().long()
+            output = model(data,attention_mask)
             _, predicted = torch.max(output.data, 1)
             all_preds.extend(predicted.cpu().numpy())
             all_labels.extend(target.cpu().numpy())
@@ -217,13 +217,11 @@ def main(variables_dict=None):
         'subfolder_name': 'baseline',
         
         # model training parameters
-        'num_epochs': 999,
+        'num_epochs': 400,
         'text_feature_extractor': 'Bert',
         'batch_size': 128,
-        'image_input_dim': 512,
-        'text_input_dim': 512,
+        'text_input_dim': 768,
         'adaptor_output_dim': 256,
-        'mixer_output_dim': 512,
         'num_classes': 2,
         'lr': 0.001,
         'LLM_loaded': True,
@@ -243,7 +241,7 @@ def main(variables_dict=None):
     if not os.path.exists(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'])):
         os.makedirs(os.path.join(parameters['safety_save_path'], parameters['subfolder_name']))
         
-            
+    device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
     data = pd.read_csv(parameters['placepulse_datapath'])
     data_ls = data[data['label'] != 0]
     data_ls.loc[data_ls[data_ls['label'] == -1].index, 'label'] = 0
@@ -268,8 +266,8 @@ def main(variables_dict=None):
 
     text_extractor = TextExtractor(pretrained_model=parameters['text_feature_extractor']) # [128, 768]
     text_adaptor = Adaptor(input_dim=parameters['text_input_dim'], projection_dim=parameters['adaptor_output_dim'], data_type='text') # [128, 256]
-    classifier = Classifier(input_dim=parameters['mixer_output_dim'], num_classes=parameters['num_classes']) # [128, 2]
-    model = TextModel(text_extractor, text_adaptor, classifier).cuda()
+    classifier = Classifier(input_dim=parameters['adaptor_output_dim'], num_classes=parameters['num_classes']) # [128, 2]
+    model = TextModel(text_extractor, text_adaptor, classifier).to(device)
     # 损失函数和优化器
     criterion = nn.CrossEntropyLoss()
     # criterion = nn.BCELoss()  # 二分类交叉熵损失
@@ -315,14 +313,14 @@ def main(variables_dict=None):
    
 if __name__ == '__main__':
     variables_dict = {'lr': [0.1, 0.01, 0.001, 1e-4, 1e-5, 1e-6, 1e-7],
-                      'text_feature_extractor': ['Bert', 'GPT2', 'DistilBert'],
+                      'text_feature_extractor': ['Bert','DistilBert'],
                       'LLM_loaded': [False],}
     combinations = list(product(*variables_dict.values()))
 
     for combination in tqdm(combinations):
         input_dict = dict(zip(variables_dict.keys(), combination))
         input_dict['subfolder_name'] = '_'.join([f"{key}_{value}" for key, value in input_dict.items()])
-        input_dict['safety_save_path'] = f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/no_LLM_ViT_Bert_20241222"
+        input_dict['safety_save_path'] = f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/text/Multi_extractor_20241223"
         os.makedirs(input_dict['safety_save_path'], exist_ok=True)
 
         # 根据模型的不同改变input_dim
