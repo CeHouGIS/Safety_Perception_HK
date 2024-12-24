@@ -167,12 +167,12 @@ class Mixer(nn.Module):
     
         elif self.process == 'MoE':
             num_experts = 2 
-            moe = models.MoE(image_features.shape[1], text_features.shape[1], self.output_dim, num_experts)
+            moe = MoE(image_features.shape[1], text_features.shape[1], self.output_dim, num_experts)
             output = moe(text_features, image_features)
 
         elif self.process == 'fc':
             output = torch.cat((image_features, text_features), dim=1)
-            output = nn.Linear(output.shape[1], self.output_dim)(output)
+            output = nn.Linear(output.shape[1], self.output_dim).cuda()(output)
             
         return output
 
@@ -283,7 +283,7 @@ def model_test(model, test_loader, LLM_model=None):
         for data, (description, attention_mask), target in test_loader:
             if LLM_model is not None:
                 data = LLM_pre_extractor([data[i] for i in range(len(data))])
-            data, description, target = data.cuda(), description.cuda().long(), attention_mask.cuda().long(), target.cuda().long()
+            data, description, attention_mask, target = data.cuda(), description.cuda().long(), attention_mask.cuda().long(), target.cuda().long()
             output = model(data, description, attention_mask)  # 获取模型输出
             _, predicted = torch.max(output.data, 1)
             all_preds.extend(predicted.cpu().numpy())
@@ -317,16 +317,17 @@ def main(variables_dict=None):
         
         # model training parameters
         'num_epochs': 999,
-        'visual_feature_extractor': 'resnet18',
+        'visual_feature_extractor': 'ViT',
         'text_feature_extractor': 'Bert',
         'batch_size': 128,
         'image_input_dim': 768,
         'text_input_dim': 768,
         'adaptor_output_dim': 256,
+        'mix_process': 'concat',
         'mixer_output_dim': 512,
         'num_classes': 2,
         'lr': 0.001,
-        'LLM_loaded': True,
+        'LLM_loaded': False,
         'LLM_image_feature_process': 'mean_dim1',
         'train_loss_list': [],
         'val_loss_list': [],
@@ -371,7 +372,7 @@ def main(variables_dict=None):
     text_extractor = TextExtractor(pretrained_model=parameters['text_feature_extractor']) # [128, 768]
     image_adaptor = Adaptor(input_dim=parameters['image_input_dim'], projection_dim=parameters['adaptor_output_dim'], data_type='image') # [128, 256]
     text_adaptor = Adaptor(input_dim=parameters['text_input_dim'], projection_dim=parameters['adaptor_output_dim'], data_type='text') # [128, 256]
-    mixer = Mixer(output_dim=parameters['mixer_output_dim'], process='concat') # [128, 512]
+    mixer = Mixer(output_dim=parameters['mixer_output_dim'], process=parameters['mix_process']) # [128, 512]
     classifier = Classifier(input_dim=parameters['mixer_output_dim'], num_classes=parameters['num_classes']) # [128, 2]
     model = MultiModalModel(image_extractor, text_extractor, image_adaptor, text_adaptor, mixer, classifier).to(device)
     # 损失函数和优化器
@@ -418,24 +419,21 @@ def main(variables_dict=None):
     plt.savefig(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], 'confusion_matrix.png'), dpi=300, bbox_inches='tight')
    
 if __name__ == '__main__':
-    variables_dict = {'lr':np.linspace(1e-6, 1e-5, 5),
-                      'visual_feature_extractor': ['ViT'],
-                      'text_feature_extractor': ['Bert'],
-                      'LLM_loaded': [False],}
+    variables_dict = {'lr':[0.1, 0.01, 0.001, 1e-4, 1e-5, 1e-6, 1e-7],
+                    #   'adaptor_output_dim':[256, 512, 1024],
+                      'mix_process':['fc', 'MoE', 'cross_attention', 'concat'],
+                    #   'mixer_output_dim':[256, 512, 1024]
+                      }
     combinations = list(product(*variables_dict.values()))
 
     for combination in tqdm(combinations):
         input_dict = dict(zip(variables_dict.keys(), combination))
         input_dict['subfolder_name'] = '_'.join([f"{key}_{value}" for key, value in input_dict.items()])
-        input_dict['safety_save_path'] = f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/ViT_Bert_20241222"
+        input_dict['safety_save_path'] = f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/diff_mixer_20241224"
         os.makedirs(input_dict['safety_save_path'], exist_ok=True)
 
         # 根据模型的不同改变input_dim
-        if combination[1] == 'resnet50':
-            input_dict['image_input_dim'] = 2048
-        if combination[1] == 'resnet18':
-            input_dict['image_input_dim'] = 512
-        if combination[1] == 'ViT':
-            input_dict['image_input_dim'] = 768
+        if combination[1] == 'cross_attention':
+            input_dict['mixer_output_dim'] = 256
             
         main(input_dict)

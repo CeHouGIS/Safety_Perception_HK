@@ -241,12 +241,13 @@ def cal_features(train_loader, image_encoder, text_encoder, cfg_paras):
 class CrossAttention(nn.Module):
     def __init__(self, embed_dim):
         super(CrossAttention, self).__init__()
-        self.query_proj = nn.Linear(embed_dim, embed_dim)
-        self.key_proj = nn.Linear(embed_dim, embed_dim)
-        self.value_proj = nn.Linear(embed_dim, embed_dim)
+        self.query_proj = nn.Linear(embed_dim, embed_dim).cuda()
+        self.key_proj = nn.Linear(embed_dim, embed_dim).cuda()
+        self.value_proj = nn.Linear(embed_dim, embed_dim).cuda()
         self.scale = embed_dim ** 0.5
 
     def forward(self, query, key, value):
+        # query, key, value = query.cuda(), key.cuda(), value.cuda()
         Q = self.query_proj(query)
         K = self.key_proj(key)
         V = self.value_proj(value)
@@ -263,7 +264,7 @@ class Expert(nn.Module):
     """专家网络，用于处理文本或图像特征"""
     def __init__(self, input_dim, output_dim):
         super(Expert, self).__init__()
-        self.fc = nn.Linear(input_dim, output_dim)
+        self.fc = nn.Linear(input_dim, output_dim).cuda() 
     
     def forward(self, x):
         return F.relu(self.fc(x))
@@ -277,14 +278,14 @@ class MoE(nn.Module):
         self.image_expert = Expert(image_dim, output_dim)
         
         # 门控网络，用于决定每个专家的权重
-        self.gate = nn.Linear(text_dim + image_dim, num_experts)  # 门控网络的输入是文本和图像的拼接
+        self.gate = nn.Linear(text_dim + image_dim, num_experts).cuda()   # 门控网络的输入是文本和图像的拼接
 
     def forward(self, text_features, image_features):
         # 将文本和图像特征拼接
         combined_features = torch.cat((text_features, image_features), dim=-1)  # shape: (batch_size, text_dim + image_dim)
         
         # 计算门控网络的权重
-        gate_weights = F.softmax(self.gate(combined_features), dim=-1)  # shape: (batch_size, num_experts)
+        gate_weights = F.softmax(self.gate(combined_features), dim=-1) # shape: (batch_size, num_experts)
         
         # 分别通过文本和图像的专家网络处理输入
         text_output = self.text_expert(text_features)  # shape: (batch_size, output_dim)
