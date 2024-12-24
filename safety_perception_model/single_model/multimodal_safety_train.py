@@ -22,7 +22,7 @@ from collections import Counter
 from sklearn.metrics import r2_score
 import shutil
 from itertools import product
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 
 # 创建模型实例
@@ -344,7 +344,7 @@ def main(variables_dict=None):
     if not os.path.exists(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'])):
         os.makedirs(os.path.join(parameters['safety_save_path'], parameters['subfolder_name']))
         
-    device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
     data = pd.read_csv(parameters['placepulse_datapath'])
     data_ls = data[data['label'] != 0]
     data_ls.loc[data_ls[data_ls['label'] == -1].index, 'label'] = 0
@@ -419,7 +419,7 @@ def main(variables_dict=None):
     plt.savefig(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], 'confusion_matrix.png'), dpi=300, bbox_inches='tight')
    
 if __name__ == '__main__':
-    variables_dict = {'lr':[0.1, 0.01, 0.001, 1e-4, 1e-5, 1e-6, 1e-7],
+    variables_dict = {'lr':[0.001, 1e-4, 1e-5, 1e-6, 1e-7],
                     #   'adaptor_output_dim':[256, 512, 1024],
                       'mix_process':['fc', 'MoE', 'cross_attention', 'concat'],
                     #   'mixer_output_dim':[256, 512, 1024]
