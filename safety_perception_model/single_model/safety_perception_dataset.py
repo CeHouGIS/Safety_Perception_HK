@@ -17,15 +17,24 @@ class SafetyPerceptionDataset(Dataset):
         """
         self.data = data
         self.transform = transform
-        self.img_path = "/data2/cehou/LLM_safety/PlacePulse2.0/photo_dataset/final_photo_dataset/"
+        # self.img_path = "/data2/cehou/LLM_safety/PlacePulse2.0/photo_dataset/final_photo_dataset/"
+        self.img_path = "/data2/cehou/LLM_safety/GSV/HK_imgs"
         self.paras = paras
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
-        image_path = f"{self.img_path}/{self.data.iloc[idx]['Image_ID']}.jpg"
-        image = np.array(Image.open(f"{self.img_path}/{self.data.iloc[idx]['Image_ID']}.jpg"))
+        # image_path = f"{self.img_path}/{self.data.iloc[idx]['Image_ID']}.jpg"
+        # image = np.array(Image.open(f"{self.img_path}/{self.data.iloc[idx]['Image_ID']}.jpg"))
+        image_id = self.data.iloc[idx]['Image_ID']
+        for i,angle in enumerate([0, 90, 180, 270]):
+            image_path = f"{self.img_path}/{image_id[0]}/{image_id[1]}/{image_id}_{angle}.jpg"
+            if i == 0:
+                image = np.array(Image.open(image_path))
+            else:
+                image = np.concatenate((image, np.array(Image.open(image_path))), axis=0)
+
         image = Image.fromarray(image)
         if self.paras['train_type'] == 'classification':
             label = self.data.iloc[idx]["label"]
@@ -38,7 +47,7 @@ class SafetyPerceptionDataset(Dataset):
         else:
             image = transforms.ToTensor()(image)
 
-        return image, label
+        return image, label, image_id
 
 class TextSafetyPerceptionDataset(Dataset):
     def __init__(self, data, tokenizer=None, transform=None, paras=None):
