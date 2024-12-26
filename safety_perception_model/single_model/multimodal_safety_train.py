@@ -115,7 +115,11 @@ class TextExtractor(nn.Module):
         with torch.no_grad():
             output = self.model(input_ids=input_ids, attention_mask=attention_mask)
             last_hidden_state = output.last_hidden_state
-        return last_hidden_state[:, self.target_token_idx, :]
+            
+            last_hidden_state = last_hidden_state.mean(dim=1)
+            # print("last_hidden_state: ", last_hidden_state.shape)
+        # return last_hidden_state[:, self.target_token_idx, :]
+        return last_hidden_state
     
     
 class Adaptor(nn.Module):
@@ -375,6 +379,8 @@ def main(variables_dict=None):
     mixer = Mixer(output_dim=parameters['mixer_output_dim'], process=parameters['mix_process']) # [128, 512]
     classifier = Classifier(input_dim=parameters['mixer_output_dim'], num_classes=parameters['num_classes']) # [128, 2]
     model = MultiModalModel(image_extractor, text_extractor, image_adaptor, text_adaptor, mixer, classifier).to(device)
+    print(model)
+
     # 损失函数和优化器
     criterion = nn.CrossEntropyLoss()
     # criterion = nn.BCELoss()  # 二分类交叉熵损失
@@ -419,9 +425,9 @@ def main(variables_dict=None):
     plt.savefig(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], 'confusion_matrix.png'), dpi=300, bbox_inches='tight')
    
 if __name__ == '__main__':
-    variables_dict = {'lr':[0.001, 1e-4, 1e-5, 1e-6, 1e-7],
+    variables_dict = {'lr':np.linspace(1e-6, 1e-5, 5), # [0.001, 1e-4, 1e-5, 1e-6, 1e-7]
                     #   'adaptor_output_dim':[256, 512, 1024],
-                      'mix_process':['fc', 'MoE', 'cross_attention', 'concat'],
+                      'mix_process':['concat'],
                     #   'mixer_output_dim':[256, 512, 1024]
                       }
     combinations = list(product(*variables_dict.values()))
@@ -429,7 +435,7 @@ if __name__ == '__main__':
     for combination in tqdm(combinations):
         input_dict = dict(zip(variables_dict.keys(), combination))
         input_dict['subfolder_name'] = '_'.join([f"{key}_{value}" for key, value in input_dict.items()])
-        input_dict['safety_save_path'] = f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/diff_mixer_20241224"
+        input_dict['safety_save_path'] = f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/concat_20241225"
         os.makedirs(input_dict['safety_save_path'], exist_ok=True)
 
         # 根据模型的不同改变input_dim

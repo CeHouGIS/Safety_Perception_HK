@@ -8,7 +8,7 @@ import torchvision.transforms as transforms
 import transformers
 
 class SafetyPerceptionDataset(Dataset):
-    def __init__(self, data, transform=None, paras=None):
+    def __init__(self, data, transform=None, paras=None, SVI_type='placepulse'):
         """
         Args:
             data (list or np.array): List or array of data samples.
@@ -20,20 +20,23 @@ class SafetyPerceptionDataset(Dataset):
         # self.img_path = "/data2/cehou/LLM_safety/PlacePulse2.0/photo_dataset/final_photo_dataset/"
         self.img_path = "/data2/cehou/LLM_safety/GSV/HK_imgs"
         self.paras = paras
+        self.SVI_type = SVI_type
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
-        # image_path = f"{self.img_path}/{self.data.iloc[idx]['Image_ID']}.jpg"
-        # image = np.array(Image.open(f"{self.img_path}/{self.data.iloc[idx]['Image_ID']}.jpg"))
-        image_id = self.data.iloc[idx]['Image_ID']
-        for i,angle in enumerate([0, 90, 180, 270]):
-            image_path = f"{self.img_path}/{image_id[0]}/{image_id[1]}/{image_id}_{angle}.jpg"
-            if i == 0:
-                image = np.array(Image.open(image_path))
-            else:
-                image = np.concatenate((image, np.array(Image.open(image_path))), axis=0)
+        if self.SVI_type == 'placepulse':
+            image_path = f"{self.img_path}/{self.data.iloc[idx]['Image_ID']}.jpg"
+            image = np.array(Image.open(f"{self.img_path}/{self.data.iloc[idx]['Image_ID']}.jpg"))
+        elif self.SVI_type == 'GSV':
+            image_id = self.data.iloc[idx]['Image_ID']
+            for i,angle in enumerate([0, 90, 180, 270]):
+                image_path = f"{self.img_path}/{image_id[0]}/{image_id[1]}/{image_id}_{angle}.jpg"
+                if i == 0:
+                    image = np.array(Image.open(image_path))
+                else:
+                    image = np.concatenate((image, np.array(Image.open(image_path))), axis=0)
 
         image = Image.fromarray(image)
         if self.paras['train_type'] == 'classification':
@@ -102,7 +105,7 @@ class TextSafetyPerceptionDataset(Dataset):
         return (encoded_descriptions, attention_mask), label
 
 class MultimodalSafetyPerceptionDataset(Dataset):
-    def __init__(self, data, tokenizer=None, transform=None, paras=None):
+    def __init__(self, data, tokenizer=None, transform=None, paras=None,SVI_type='placepulse'):
         """
         Args:
             data (list or np.array): List or array of data samples.
@@ -122,14 +125,25 @@ class MultimodalSafetyPerceptionDataset(Dataset):
 
         self.img_path = "/data2/cehou/LLM_safety/PlacePulse2.0/photo_dataset/final_photo_dataset/"
         self.paras = paras
+        self.SVI_type = SVI_type
 
     def __len__(self):
         return len(self.data)
 
-    def __getitem__(self, idx):
-        
-        image = np.array(Image.open(f"{self.img_path}/{self.data.iloc[idx]['Image_ID']}.jpg"))
-        image = Image.fromarray(image)
+    def __getitem__(self, idx):        
+        # image = np.array(Image.open(f"{self.img_path}/{self.data.iloc[idx]['Image_ID']}.jpg"))
+        # image = Image.fromarray(image)
+        if self.SVI_type == 'placepulse':
+            image_path = f"{self.img_path}/{self.data.iloc[idx]['Image_ID']}.jpg"
+            image = np.array(Image.open(f"{self.img_path}/{self.data.iloc[idx]['Image_ID']}.jpg"))
+        elif self.SVI_type == 'GSV':
+            image_id = self.data.iloc[idx]['Image_ID']
+            for i,angle in enumerate([0, 90, 180, 270]):
+                image_path = f"{self.img_path}/{image_id[0]}/{image_id[1]}/{image_id}_{angle}.jpg"
+                if i == 0:
+                    image = np.array(Image.open(image_path))
+                else:
+                    image = np.concatenate((image, np.array(Image.open(image_path))), axis=0)
         if self.paras['train_type'] == 'classification':
             label = self.data.iloc[idx]["label"]
             # label = label * 100 // 5
