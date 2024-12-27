@@ -1,6 +1,10 @@
 # generate baseline data
 # python /code/LLM-crime/generate_dataset.py --visible-device "cuda:3" --age "baseline" --gender "baseline" --location "baseline" --event "baseline" --img-type "PlacePulse" --start-from 0 --data-num 10000
 
+# python /code/LLM-crime/generate_dataset.py --visible-device "1" --age "baseline" --gender "baseline" --location "baseline" --event "baseline" --img-type "GSV" --start-from 0 --data-num 4989 --batch-size 6
+# python /code/LLM-crime/generate_dataset.py --visible-device "2" --age "30" --gender "male" --location "HongKong" --event "murder" --img-type "GSV" --start-from 0 --data-num 4989 --batch-size 4
+
+# python /code/LLM-crime/generate_dataset.py --visible-device "2,3" --age "60" --gender "female" --location "HongKong" --event "murder" --img-type "GSV" --start-from 100 --data-num 4989 --batch-size 4
 # python /code/LLM-crime/generate_dataset.py --visible-device "2,3" --age "60" --gender "male" --location "HongKong" --event "traffic accident" --img-type "GSV" --start-from 0 --data-num 4989 --batch-size 4
 # python /code/LLM-crime/generate_dataset.py --visible-device "2,3" --age "60" --gender "female" --location "HongKong" --event "traffic accident" --img-type "GSV" --start-from 100 --data-num 4989 --batch-size 4
 
@@ -29,7 +33,7 @@ parser.add_argument('--visible-device', default="0,1,2,3", type=str,
                     help='event of virtual agent for safety perception')
 parser.add_argument('--age', default='30', type=str,
                     help='age of virtual agent')
-parser.add_argument('--gender', default='male', type=str,
+parser.add_argument('--gender', default='baseline', type=str,
                     help='gender of virtual agent')
 parser.add_argument('--location', default='Hong Kong', type=str,
                     help='location of virtual agent')
@@ -108,34 +112,59 @@ def generate_dataset_block(GSV_idx, GSV_name, GSV_rootpath, answers, profile, im
 
     data_block = []
     for i in range(len(answers)):
-        answer_gender = answers[i].split('<\\s>')[1].split(' [/INST] ')[1] # gender
-        answer_age = answers[i].split('<\\s>')[2].split(' [/INST] ')[1] # age
-        answer_location = answers[i].split('<\\s>')[3].split(' [/INST] ')[1] # location
+        if profile['gender'] == 'baseline':
+            answer_baseline = answers[i].split('<\\s>')[1].split(' [/INST] ')[1] # gender
+            if img_type == 'GSV':
+                dataset_unit = {
+                "GSV_idx": GSV_idx[i],
+                "panoid":GSV_name[i],
+                "age":profile['age'],
+                "gender": profile['gender'],
+                "location": profile['location'],
+                "event": profile['event'],
+                "text_description_all": answers,
+                "text_description_baseline": answer_baseline,
+                }
+            elif img_type == 'PlacePulse':
+                dataset_unit = {
+                "GSV_idx": GSV_idx,
+                "GSV_name": GSV_name,
+                "panoid":f"{GSV_rootpath}/{GSV_name}.jpg",
+                "text_description": answers,
+                "age":profile['age'],
+                "gender": profile['gender'],
+                "location": profile['location'],
+                "event": profile['event']
+                }
+        else:
+            answer_gender = answers[i].split('<\\s>')[1].split(' [/INST] ')[1] # gender
+            answer_age = answers[i].split('<\\s>')[2].split(' [/INST] ')[1] # age
+            answer_location = answers[i].split('<\\s>')[3].split(' [/INST] ')[1] # location
 
-        if img_type == 'GSV':
-            dataset_unit = {
-            "GSV_idx": GSV_idx[i],
-            "panoid":GSV_name[i],
-            "age":profile['age'],
-            "gender": profile['gender'],
-            "location": profile['location'],
-            "event": profile['event'],
-            "text_description_all": answers,
-            "text_description_age": answer_age,
-            "text_description_gender": answer_gender,
-            "text_description_location": answer_location,
-            }
-        elif img_type == 'PlacePulse':
-            dataset_unit = {
-            "GSV_idx": GSV_idx,
-            "GSV_name": GSV_name,
-            "panoid":f"{GSV_rootpath}/{GSV_name}.jpg",
-            "text_description": answers,
-            "age":profile['age'],
-            "gender": profile['gender'],
-            "location": profile['location'],
-            "event": profile['event']
-            }
+            if img_type == 'GSV':
+                dataset_unit = {
+                "GSV_idx": GSV_idx[i],
+                "panoid":GSV_name[i],
+                "age":profile['age'],
+                "gender": profile['gender'],
+                "location": profile['location'],
+                "event": profile['event'],
+                "text_description_all": answers,
+                "text_description_age": answer_age,
+                "text_description_gender": answer_gender,
+                "text_description_location": answer_location,
+                }
+            elif img_type == 'PlacePulse':
+                dataset_unit = {
+                "GSV_idx": GSV_idx,
+                "GSV_name": GSV_name,
+                "panoid":f"{GSV_rootpath}/{GSV_name}.jpg",
+                "text_description": answers,
+                "age":profile['age'],
+                "gender": profile['gender'],
+                "location": profile['location'],
+                "event": profile['event']
+                }
 
         data_block.append(dataset_unit)
 
@@ -204,7 +233,7 @@ if __name__ == '__main__':
         "location": args.location,
         "event": args.event
     }
-    
+    print(profile)
     # answer_list = []
 
     print("Start generating dateset")
@@ -220,6 +249,7 @@ if __name__ == '__main__':
         GSV_imgs = [Image.fromarray(get_img(GSV_metadata, GSV_rootpath, i, img_size)) for i in sub_range]
 
         if args.gender == "baseline":
+            print("baseline")
             question_list =[[
                 [f"Please design a street safety perception system rating scale and list in as much detail as possible the different information that people pay attention to in street perception by looking around the built environment (elements of the urban environment that Street View images can capture). Note that we cannot provide subjective information about residents' personal experiences, so look for key points from the objective environment, please answer this question within 300 words.", GSV_imgs[i]],
                 ["Based on your answers, evaluate the safety perception brought to you by the street scenes in the panoramic street view image one by one. Please answer this question within 300 words.", GSV_imgs[i]],
