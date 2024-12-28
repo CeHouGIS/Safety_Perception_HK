@@ -27,6 +27,7 @@ class SafetyPerceptionDataset(Dataset):
 
     def __getitem__(self, idx):
         if self.SVI_type == 'placepulse':
+            self.img_path = "/data2/cehou/LLM_safety/PlacePulse2.0/photo_dataset/final_photo_dataset/"
             image_path = f"{self.img_path}/{self.data.iloc[idx]['Image_ID']}.jpg"
             image = np.array(Image.open(f"{self.img_path}/{self.data.iloc[idx]['Image_ID']}.jpg"))
         elif self.SVI_type == 'GSV':
@@ -50,7 +51,7 @@ class SafetyPerceptionDataset(Dataset):
         else:
             image = transforms.ToTensor()(image)
 
-        return image, label, image_id
+        return image, label
 
 class TextSafetyPerceptionDataset(Dataset):
     def __init__(self, data, tokenizer=None, transform=None, paras=None):
@@ -144,6 +145,7 @@ class MultimodalSafetyPerceptionDataset(Dataset):
                     image = np.array(Image.open(image_path))
                 else:
                     image = np.concatenate((image, np.array(Image.open(image_path))), axis=0)
+        image = Image.fromarray(image)
         if self.paras['train_type'] == 'classification':
             label = self.data.iloc[idx]["label"]
             # label = label * 100 // 5

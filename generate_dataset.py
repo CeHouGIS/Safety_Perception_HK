@@ -2,9 +2,9 @@
 # python /code/LLM-crime/generate_dataset.py --visible-device "cuda:3" --age "baseline" --gender "baseline" --location "baseline" --event "baseline" --img-type "PlacePulse" --start-from 0 --data-num 10000
 
 # python /code/LLM-crime/generate_dataset.py --visible-device "1" --age "baseline" --gender "baseline" --location "baseline" --event "baseline" --img-type "GSV" --start-from 0 --data-num 4989 --batch-size 6
-# python /code/LLM-crime/generate_dataset.py --visible-device "2" --age "30" --gender "male" --location "HongKong" --event "murder" --img-type "GSV" --start-from 0 --data-num 4989 --batch-size 4
+# python /code/LLM-crime/generate_dataset.py --visible-device "2" --age "30" --gender "male" --location "HongKong" --event "murder" --img-type "GSV" --start-from 1900 --data-num 4989 --batch-size 4
 
-# python /code/LLM-crime/generate_dataset.py --visible-device "2,3" --age "60" --gender "female" --location "HongKong" --event "murder" --img-type "GSV" --start-from 100 --data-num 4989 --batch-size 4
+# python /code/LLM-crime/generate_dataset.py --visible-device "2,3" --age "60" --gender "female" --location "HongKong" --event "murder" --img-type "GSV" --start-from 1900 --data-num 4989 --batch-size 4
 # python /code/LLM-crime/generate_dataset.py --visible-device "2,3" --age "60" --gender "male" --location "HongKong" --event "traffic accident" --img-type "GSV" --start-from 0 --data-num 4989 --batch-size 4
 # python /code/LLM-crime/generate_dataset.py --visible-device "2,3" --age "60" --gender "female" --location "HongKong" --event "traffic accident" --img-type "GSV" --start-from 100 --data-num 4989 --batch-size 4
 

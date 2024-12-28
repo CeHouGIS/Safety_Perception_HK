@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from collections import Counter
 from sklearn.metrics import r2_score
+from scipy.stats import norm
 import shutil
 from itertools import product
 from torchvision.models.feature_extraction import create_feature_extractor, get_graph_node_names
@@ -286,6 +287,11 @@ def main(variables_dict=None):
         
             
     data = pd.read_csv(parameters['placepulse_datapath'])
+    mu, std = norm.fit(data['Score'])
+    std_threshold = 1
+    data['label'] = 0
+    data.loc[data[data['Score'] > mu + std_threshold * std].index, 'label'] = 1
+    data.loc[data[data['Score'] < mu - std_threshold * std].index, 'label'] = -1
     data_ls = data[data['label'] != 0]
     data_ls.loc[data_ls[data_ls['label'] == -1].index, 'label'] = 0
     transform = get_transforms((224,224))
@@ -294,14 +300,14 @@ def main(variables_dict=None):
 
     if parameters['LLM_loaded'] == True:
         LLM_pre_extractor = LLMImageFeaturePrextractor(process=parameters['LLM_feature_process'])
-        train_dataset = SafetyPerceptionDataset(data_ls[:train_num], paras=parameters)
-        valid_dataset = SafetyPerceptionDataset(data_ls[train_num:train_num+valid_num], paras=parameters)
-        test_dataset = SafetyPerceptionDataset(data_ls[train_num+valid_num:], paras=parameters)
+        train_dataset = SafetyPerceptionDataset(data_ls[:train_num], paras=parameters, SVI_type='placepulse')
+        valid_dataset = SafetyPerceptionDataset(data_ls[train_num:train_num+valid_num], paras=parameters, SVI_type='placepulse')
+        test_dataset = SafetyPerceptionDataset(data_ls[train_num+valid_num:], paras=parameters, SVI_type='placepulse')
     else:
         LLM_pre_extractor = None
-        train_dataset = SafetyPerceptionDataset(data_ls[:train_num], transform=transform, paras=parameters)
-        valid_dataset = SafetyPerceptionDataset(data_ls[train_num:train_num+valid_num], transform=transform, paras=parameters)
-        test_dataset = SafetyPerceptionDataset(data_ls[train_num+valid_num:], transform=transform, paras=parameters)
+        train_dataset = SafetyPerceptionDataset(data_ls[:train_num], transform=transform, paras=parameters, SVI_type='placepulse')
+        valid_dataset = SafetyPerceptionDataset(data_ls[train_num:train_num+valid_num], transform=transform, paras=parameters, SVI_type='placepulse')
+        test_dataset = SafetyPerceptionDataset(data_ls[train_num+valid_num:], transform=transform, paras=parameters, SVI_type='placepulse')
         
         
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=parameters['batch_size'], shuffle=True)
@@ -367,7 +373,7 @@ if __name__ == '__main__':
     for combination in tqdm(combinations):
         input_dict = dict(zip(variables_dict.keys(), combination))
         input_dict['subfolder_name'] = '_'.join([f"{key}_{value}" for key, value in input_dict.items()])
-        input_dict['safety_save_path'] = f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/only_img/no_LLM_ViT_20241223"
+        input_dict['safety_save_path'] = f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/only_img/multi_extractor_small_dataset_20241228"
         os.makedirs(input_dict['safety_save_path'], exist_ok=True)
 
         # 根据模型的不同改变input_dim
