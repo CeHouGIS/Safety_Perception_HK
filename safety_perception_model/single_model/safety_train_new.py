@@ -365,7 +365,7 @@ def main(variables_dict=None):
     plt.savefig(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], 'confusion_matrix.png'), dpi=300, bbox_inches='tight')
    
 if __name__ == '__main__':
-    variables_dict = {'lr':[0.1, 0.01, 0.001, 1e-4, 1e-5, 1e-6, 1e-7], # np.linspace(1e-6, 1e-5, 5)
+    variables_dict = {'lr':[1e-4, 1e-5, 1e-6, 1e-7], # np.linspace(1e-6, 1e-5, 5)
                       'visual_feature_extractor': ['ViT'],
                       'LLM_loaded': [False],}
     combinations = list(product(*variables_dict.values()))
@@ -373,7 +373,7 @@ if __name__ == '__main__':
     for combination in tqdm(combinations):
         input_dict = dict(zip(variables_dict.keys(), combination))
         input_dict['subfolder_name'] = '_'.join([f"{key}_{value}" for key, value in input_dict.items()])
-        input_dict['safety_save_path'] = f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/only_img/multi_extractor_small_dataset_20241228"
+        input_dict['safety_save_path'] = f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/only_img/multi_extractor_small_dataset_20241230"
         os.makedirs(input_dict['safety_save_path'], exist_ok=True)
 
         # 根据模型的不同改变input_dim

@@ -17,6 +17,8 @@ import torchvision.transforms as transforms
 from safety_perception_dataset import *
 import neptune
 from sklearn.metrics import confusion_matrix, f1_score
+from torchvision.models.feature_extraction import create_feature_extractor, get_graph_node_names
+
 import matplotlib.pyplot as plt
 import seaborn as sns
 from collections import Counter
@@ -78,9 +80,12 @@ def get_transforms(resize_size):
 class ImageExtractor(nn.Module):
     def __init__(self, pretrained_model='resnet18'):
         super(ImageExtractor, self).__init__()
+        self.pretrained_model = pretrained_model
         if pretrained_model == 'ViT':
-            self.model = models.vit_b_16(pretrained=True)
-            self.model = nn.Sequential(*list(self.model.children())[:-2])
+            # self.model = models.vit_b_16(pretrained=True)
+            # self.model = nn.Sequential(*list(self.model.children())[:-2])
+            self.model = create_feature_extractor(models.vit_b_16(pretrained=True), return_nodes={'getitem_5': 'features'})
+
         if pretrained_model == 'resnet50':
             self.model = models.resnet50(pretrained=True)
             # 去掉最后的全连接层
@@ -93,11 +98,15 @@ class ImageExtractor(nn.Module):
     def forward(self, x):
         # 输入图像 x，返回提取的特征
         with torch.no_grad():  # 禁用梯度计算
-            features = self.model(x)
-            if features.dim() == 4:
-                features = F.adaptive_avg_pool2d(features, (1, 1))
+            if self.pretrained_model == 'ViT':
+                features = self.model(x)['features']
+            else:
+                features = self.model(x)
+                features = features.view(features.size(0), -1)
+            # if features.dim() == 4:
+            #     features = F.adaptive_avg_pool2d(features, (1, 1))
         # 返回特征的展平（flatten）形式
-        return features.view(features.size(0), -1)
+        return features
 
 class TextExtractor(nn.Module):
     def __init__(self, pretrained_model='Bert'):
@@ -431,9 +440,10 @@ def main(variables_dict=None):
     plt.savefig(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], 'confusion_matrix.png'), dpi=300, bbox_inches='tight')
    
 if __name__ == '__main__':
-    variables_dict = { 'lr':[0.001, 1e-4, 1e-5, 1e-6, 1e-7], # np.linspace(1e-6, 1e-5, 5), # [0.001, 1e-4, 1e-5, 1e-6, 1e-7]
-                      'adaptor_output_dim':[256,512,1024],
-                      'mix_process':[ "MoE", "cross_attention", 'concat', 'fc'],
+    variables_dict = { 'lr':[1e-5, 1e-6, 1e-7], # np.linspace(1e-6, 1e-5, 5), # [0.001, 1e-4, 1e-5, 1e-6, 1e-7]
+                      'adaptor_output_dim':[256],
+                    #   'mix_process':[ "MoE", "cross_attention", 'concat', 'fc'],
+                    'mix_process':['concat'],
                     #   'mixer_output_dim':[512]
                       }
     combinations = list(product(*variables_dict.values()))
@@ -442,7 +452,7 @@ if __name__ == '__main__':
         print(combination)
         input_dict = dict(zip(variables_dict.keys(), combination))
         input_dict['subfolder_name'] = '_'.join([f"{key}_{value}" for key, value in input_dict.items()])
-        input_dict['safety_save_path'] = f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/diff_concat_20241229"
+        input_dict['safety_save_path'] = f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/diff_concat_20241230"
         os.makedirs(input_dict['safety_save_path'], exist_ok=True)
 
         input_dict['mixer_output_dim'] = input_dict['adaptor_output_dim'] * 2

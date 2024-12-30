@@ -37,7 +37,7 @@ class SafetyPerceptionDataset(Dataset):
                 if i == 0:
                     image = np.array(Image.open(image_path))
                 else:
-                    image = np.concatenate((image, np.array(Image.open(image_path))), axis=0)
+                    image = np.concatenate((image, np.array(Image.open(image_path))), axis=1)
 
         image = Image.fromarray(image)
         if self.paras['train_type'] == 'classification':
@@ -144,7 +144,7 @@ class MultimodalSafetyPerceptionDataset(Dataset):
                 if i == 0:
                     image = np.array(Image.open(image_path))
                 else:
-                    image = np.concatenate((image, np.array(Image.open(image_path))), axis=0)
+                    image = np.concatenate((image, np.array(Image.open(image_path))), axis=1)
         image = Image.fromarray(image)
         if self.paras['train_type'] == 'classification':
             label = self.data.iloc[idx]["label"]
