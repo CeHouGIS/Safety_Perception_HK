@@ -10,6 +10,7 @@ sys.path.append("/code/LLM-crime/single_model")
 from my_models import TransformerRegressionModel, ResNet50Model, ViTClassifier
 from LLM_feature_extractor import LLaVaFeatureExtractor
 import transformers
+from scipy.stats import norm
 from data_fusion import *
 from PIL import Image
 import torchvision.transforms as transforms
@@ -154,10 +155,9 @@ class Mixer(nn.Module):
         super(Mixer, self).__init__()
         self.process = process
         self.output_dim = output_dim
-        
 
     def forward(self, image_features, text_features):
-        
+        # print(self.process)
         if self.process == 'concat':
             output = torch.cat((image_features, text_features), dim=1)
         
@@ -320,7 +320,7 @@ def main(variables_dict=None):
         'subfolder_name': 'baseline',
         
         # model training parameters
-        'num_epochs': 999,
+        'num_epochs': 399,
         'visual_feature_extractor': 'ViT',
         'text_feature_extractor': 'Bert',
         'batch_size': 128,
@@ -350,11 +350,17 @@ def main(variables_dict=None):
         
     device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
     data = pd.read_csv(parameters['placepulse_datapath'])
+    mu, std = norm.fit(data['Score'])
+    std_threshold = 1
+    data['label'] = 0
+    data.loc[data[data['Score'] > mu + std_threshold * std].index, 'label'] = 1
+    data.loc[data[data['Score'] < mu - std_threshold * std].index, 'label'] = -1
     data_ls = data[data['label'] != 0]
     data_ls.loc[data_ls[data_ls['label'] == -1].index, 'label'] = 0
     transform = get_transforms((224,224))
     train_num = int(len(data_ls) * 0.6)
     valid_num = int(len(data_ls) * 0.2)
+
 
     if parameters['LLM_loaded'] == True:
         LLM_pre_extractor = LLMImageFeaturePrextractor(process=parameters['LLM_image_feature_process'])
@@ -425,21 +431,24 @@ def main(variables_dict=None):
     plt.savefig(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], 'confusion_matrix.png'), dpi=300, bbox_inches='tight')
    
 if __name__ == '__main__':
-    variables_dict = {# 'lr':np.linspace(1e-6, 1e-5, 5), # [0.001, 1e-4, 1e-5, 1e-6, 1e-7]
-                      'adaptor_output_dim':[256, 512],
-                    #   'mix_process':['concat'],
-                      'mixer_output_dim':[512, 1024]
+    variables_dict = { 'lr':[0.001, 1e-4, 1e-5, 1e-6, 1e-7], # np.linspace(1e-6, 1e-5, 5), # [0.001, 1e-4, 1e-5, 1e-6, 1e-7]
+                      'adaptor_output_dim':[256,512,1024],
+                      'mix_process':[ "MoE", "cross_attention", 'concat', 'fc'],
+                    #   'mixer_output_dim':[512]
                       }
     combinations = list(product(*variables_dict.values()))
 
     for combination in tqdm(combinations):
+        print(combination)
         input_dict = dict(zip(variables_dict.keys(), combination))
         input_dict['subfolder_name'] = '_'.join([f"{key}_{value}" for key, value in input_dict.items()])
-        input_dict['safety_save_path'] = f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/concat_20241228"
+        input_dict['safety_save_path'] = f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/diff_concat_20241229"
         os.makedirs(input_dict['safety_save_path'], exist_ok=True)
 
+        input_dict['mixer_output_dim'] = input_dict['adaptor_output_dim'] * 2
+
         # 根据模型的不同改变input_dim
-        if combination[1] == 'cross_attention':
-            input_dict['mixer_output_dim'] = 256
+        if input_dict['mix_process'] == 'cross_attention':
+            input_dict['mixer_output_dim'] = input_dict['adaptor_output_dim']
             
         main(input_dict)

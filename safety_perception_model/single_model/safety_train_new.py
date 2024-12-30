@@ -261,7 +261,7 @@ def main(variables_dict=None):
         'subfolder_name': 'baseline',
         
         # model training parameters
-        'num_epochs': 999,
+        'num_epochs': 399,
         'visual_feature_extractor': 'resnet18',
         'batch_size': 128,
         'input_dim': 2048,
