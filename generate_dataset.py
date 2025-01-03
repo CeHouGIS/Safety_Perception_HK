@@ -1,5 +1,5 @@
 # generate baseline data
-# python /code/LLM-crime/generate_dataset.py --visible-device "cuda:3" --age "baseline" --gender "baseline" --location "baseline" --event "baseline" --img-type "PlacePulse" --start-from 0 --data-num 10000
+# python /code/LLM-crime/generate_dataset.py --visible-device "3" --age "baseline" --gender "baseline" --location "baseline" --event "baseline" --img-type "PlacePulse" --start-from 0 --data-num 5264 --batch-size 4
 
 # python /code/LLM-crime/generate_dataset.py --visible-device "1" --age "baseline" --gender "baseline" --location "baseline" --event "baseline" --img-type "GSV" --start-from 0 --data-num 4989 --batch-size 6
 # python /code/LLM-crime/generate_dataset.py --visible-device "2" --age "30" --gender "male" --location "HongKong" --event "murder" --img-type "GSV" --start-from 1900 --data-num 4989 --batch-size 4
@@ -76,16 +76,19 @@ def count_characters(s):
 #         # plt.axis('off')
 #         return GSV_img
     
-def get_img(GSV_metadata, GSV_rootpath, idx, img_size):
+def get_img(GSV_metadata, GSV_rootpath, idx, img_size, img_type='GSV'):
     GSV_name = GSV_metadata.iloc[idx]['panoid']
-    GSV_list = [f"{GSV_rootpath}/{GSV_name[0]}/{GSV_name[1]}/{GSV_name}_{angle}.jpg" for angle in range(0, 360, 90)]
-    for i,path in enumerate(GSV_list):
-        if i == 0:
-            GSV_img = np.array(Image.open(GSV_list[0]))
-        else:
-            GSV_img = np.concatenate((GSV_img, np.array(Image.open(path))), axis=1)
-    
-    GSV_img = np.array(Image.fromarray(GSV_img).resize((img_size[0], img_size[1])))
+    if img_type == 'PlacePulse':
+        GSV_img = np.array(Image.open(f"{GSV_rootpath}/{GSV_name}.jpg"))
+    if img_type == 'GSV':
+        GSV_list = [f"{GSV_rootpath}/{GSV_name[0]}/{GSV_name[1]}/{GSV_name}_{angle}.jpg" for angle in range(0, 360, 90)]
+        for i,path in enumerate(GSV_list):
+            if i == 0:
+                GSV_img = np.array(Image.open(GSV_list[0]))
+            else:
+                GSV_img = np.concatenate((GSV_img, np.array(Image.open(path))), axis=1)
+        
+        GSV_img = np.array(Image.fromarray(GSV_img).resize((img_size[0], img_size[1])))
     # visualization
     # plt.imshow(GSV_img)
     # plt.title('GSV from original dataset')
@@ -216,7 +219,8 @@ if __name__ == '__main__':
         GSV_metadata = pd.read_csv(GSV_metadata_path)
     elif args.img_type == 'PlacePulse':
         GSV_rootpath = "/data2/cehou/LLM_safety/PlacePulse2.0/photo_dataset/final_photo_dataset"
-        GSV_metadata_path = '/data2/cehou/LLM_safety/PlacePulse2.0/train_data_need_label.csv' # Place Pulse SVI
+        # GSV_metadata_path = '/data2/cehou/LLM_safety/PlacePulse2.0/train_data_need_label.csv' # Place Pulse SVI
+        GSV_metadata_path = "/data2/cehou/LLM_safety/PlacePulse2.0/train_data_5264_notprocess.csv"
         GSV_metadata = pd.read_csv(GSV_metadata_path) 
         
     if args.specific_img == False:  
@@ -246,7 +250,7 @@ if __name__ == '__main__':
     for idx in tqdm(range(len(select_range)-1)):
         sub_range = np.arange(select_range[idx], select_range[idx+1])
         print(f"Processing {sub_range}")
-        GSV_imgs = [Image.fromarray(get_img(GSV_metadata, GSV_rootpath, i, img_size)) for i in sub_range]
+        GSV_imgs = [Image.fromarray(get_img(GSV_metadata, GSV_rootpath, i, img_size, "PlacePulse")) for i in sub_range]
 
         if args.gender == "baseline":
             print("baseline")
@@ -264,7 +268,7 @@ if __name__ == '__main__':
 
             question_list = [[
                 [f"Please design a car accident-focused street safety perception system list briefly and include different information that people pay attention to in street perception by looking around the built environment (elements of the urban environment that Street View images can capture). Please pay special attention to the fact that people of different ages and genders may have different perceptions and reactions. Note that we cannot provide subjective information about residents' personal experiences, so look for key points from the objective environment, please answer this question within 300 words."],
-                [f"When evaluating the safety perception of specific criminal behaviors, it is important to consider the sensitivity of different demographic groups to their environment. For {profile['gender']}, which parts of the image would you emphasize? Please answer this question within 300 words.", GSV_imgs[i]],
+                [f"When evaluating the safety perception of specific criminal behaviors, it is important to consider the sensitivity of different demographic groups to their environment. For {profile['gender']} as a pedestrian, which parts of the image would you emphasize? Please answer this question within 300 words.", GSV_imgs[i]],
                 [f"For people in the age of {profile['age']}, what factors in the image do you think would impact their sense of safety? Please answer this question within 300 words."],
                 [f"When discussing the safety perception in {profile['location']}, what is the characteristics of the built environment, and how these characteristics will influence people's safety perception? Please answer this question within 300 words."]
             ] for i in range(len(sub_range))]
