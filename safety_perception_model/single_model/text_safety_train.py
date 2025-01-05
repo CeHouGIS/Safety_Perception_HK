@@ -211,7 +211,7 @@ def main(variables_dict=None):
     # parameters
     parameters = {
         'train_type': "classification",
-        'placepulse_datapath': "/data2/cehou/LLM_safety/img_text_data/baseline/tidyed/dataset_baseline_baseline_baseline_baseline_9030_withlabel.csv",
+        'placepulse_datapath': "/data2/cehou/LLM_safety/img_text_data/baseline/tidyed/dataset_baseline_baseline_baseline_baseline_14294_withlabel.csv",
         'safety_save_path' : f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/",
         'safety_model_save_name':"model_baseline.pt",
         'subfolder_name': 'baseline',

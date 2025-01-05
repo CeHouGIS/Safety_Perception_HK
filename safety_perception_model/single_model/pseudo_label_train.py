@@ -301,14 +301,16 @@ def pseudo_label_generation(model, test_loader, criterion, confidence_threshold=
             all_pseudo_labels.extend(pseudo_labels.cpu().numpy())
             all_probabilities.extend(probabilities.cpu().numpy())
 
-    pseudo_labels = torch.tensor(all_pseudo_labels)
+    all_pseudo_labels = torch.tensor(all_pseudo_labels)
     probabilities = torch.tensor(all_probabilities)
     confidence_threshold = confidence_threshold
     max_probs, _ = torch.max(probabilities, dim=1)
     high_confidence_mask = max_probs > confidence_threshold
     
-    y_high_confidence_idx = pseudo_labels[high_confidence_mask]
-    return pseudo_labels, y_high_confidence_idx
+    # y_high_confidence_idx = all_pseudo_labels[high_confidence_mask]
+    y_high_confidence_idx = torch.where(high_confidence_mask == 1)[0]
+
+    return all_pseudo_labels, y_high_confidence_idx
 
 def make_loaders(data_ls, data_test, parameters):
 
@@ -370,13 +372,13 @@ def main(variables_dict=None):
     # parameters
     parameters = {
         'train_type': "classification",
-        'placepulse_datapath': "/data2/cehou/LLM_safety/img_text_data/baseline/tidyed/dataset_baseline_baseline_baseline_baseline_9030_withlabel.csv",
+        'placepulse_datapath': "/data2/cehou/LLM_safety/img_text_data/baseline/tidyed/dataset_baseline_baseline_baseline_baseline_14294_withlabel.csv",
         'safety_save_path' : f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/",
         'safety_model_save_name':"model_baseline.pt",
         'subfolder_name': 'baseline',
         
         # model training parameters
-        'num_epochs': 399,
+        'num_epochs': 199,
         'visual_feature_extractor': 'ViT',
         'text_feature_extractor': 'Bert',
         'batch_size': 128,
@@ -419,12 +421,17 @@ def main(variables_dict=None):
     # criterion = nn.BCELoss()  # 二分类交叉熵损失
     optimizer = optim.Adam(model.parameters(), lr=parameters['lr'])
                         
+    data_fulfilled = False
+    confidence_list = np.zeros(50)
+    confidence_list[:10] = 0.95
+    confidence_list[10:20] = 0.9
+    confidence_list[20:] = 0.8
     
-    for i, confidence_threshold in enumerate([0.95,0.9,0.85,0.8,0.75]):
+    for i, confidence_threshold in enumerate(confidence_list):
         if i == 0:
             data = pd.read_csv(parameters['placepulse_datapath'])
             mu, std = norm.fit(data['Score'])
-            std_threshold = 3
+            std_threshold = 2.5
             data['label'] = 0
             data.loc[data[data['Score'] > mu + std_threshold * std].index, 'label'] = 1
             data.loc[data[data['Score'] < mu - std_threshold * std].index, 'label'] = -1
@@ -436,7 +443,7 @@ def main(variables_dict=None):
 
         # initialize
         train_loader, valid_loader, test_loader, LLM_pre_extractor = make_loaders(data_ls, data_test, parameters)
-
+        
         early_stopping = EarlyStopping(patience=5, verbose=True)
         for epoch in range(parameters["num_epochs"]):    
             pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{parameters['num_epochs']}",unit="batch", mininterval=2.0)
@@ -455,30 +462,34 @@ def main(variables_dict=None):
 
             if early_stopping.early_stop:
                 print("Early stopping")
-                break
-        
+                break        
+
+        if data_fulfilled:
+            print("Data fulfilled")
+            break
 
         pseudo_labels, y_high_confidence_idx = pseudo_label_generation(model, test_loader, criterion, confidence_threshold=0.95)
         pseudo_labels = pseudo_labels.cpu().numpy()
         y_high_confidence_idx = y_high_confidence_idx.cpu().numpy()
         print("update data labels")
         data_update = data_test.iloc[y_high_confidence_idx].reset_index(drop=True)
+        # print(pseudo_labels, y_high_confidence_idx)
         for i,idx in tqdm(enumerate(y_high_confidence_idx)):
             data_test.loc[idx, 'label'] = pseudo_labels[i]
-
         data_ls = pd.concat([data_ls, data_update], axis=0).reset_index(drop=True)
         # data_ls['label'] = data_ls['label'].apply(lambda x: 1 if x == 1 else 0)
         data_test = data_test[~data_test.index.isin(y_high_confidence_idx)].reset_index(drop=True)
-        print(f"Confidence threshold: {confidence_threshold}, High confidence samples: {len(y_high_confidence_idx)}")
-
+        print(f"Confidence threshold: {confidence_threshold}, High confidence samples: {len(y_high_confidence_idx)}, updated data samples: {len(data_ls)}, rest test samples: {len(data_test)}")
+        if len(data_ls) > 0.6 * (len(data_ls) + len(data_test)):
+            data_fulfilled = True
 
 
     torch.save(model.state_dict(), os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], parameters['safety_model_save_name']))
     print("Model saved at ", os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], parameters['safety_model_save_name']))
     
-    # f1, cm, all_preds, all_labels = model_test(model, test_loader, LLM_model=LLM_pre_extractor)
-    # parameters['accuracy'] = cm.diagonal().sum() / cm.sum()
-    # parameters['f1_score'] = f1
+    f1, cm, all_preds, all_labels = model_test(model, test_loader, LLM_model=LLM_pre_extractor)
+    parameters['accuracy'] = cm.diagonal().sum() / cm.sum()
+    parameters['f1_score'] = f1
     
     pd.DataFrame(parameters).to_csv(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], 'parameters.csv'))
     print("Parameters saved at ", os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], 'parameters.csv'))    
@@ -503,7 +514,7 @@ if __name__ == '__main__':
         print(combination)
         input_dict = dict(zip(variables_dict.keys(), combination))
         input_dict['subfolder_name'] = '_'.join([f"{key}_{value}" for key, value in input_dict.items()])
-        input_dict['safety_save_path'] = f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/pseudo_label_20250103"
+        input_dict['safety_save_path'] = f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/pseudo_label_20250104"
         os.makedirs(input_dict['safety_save_path'], exist_ok=True)
 
         input_dict['mixer_output_dim'] = input_dict['adaptor_output_dim'] * 2
