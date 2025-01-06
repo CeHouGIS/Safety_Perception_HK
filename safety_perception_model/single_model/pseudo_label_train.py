@@ -25,7 +25,7 @@ from collections import Counter
 from sklearn.metrics import r2_score
 import shutil
 from itertools import product
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 
 
 # 创建模型实例
@@ -406,7 +406,7 @@ def main(variables_dict=None):
     if not os.path.exists(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'])):
         os.makedirs(os.path.join(parameters['safety_save_path'], parameters['subfolder_name']))
         
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
     image_extractor = ImageExtractor(pretrained_model=parameters['visual_feature_extractor']) # [128, 512]
     text_extractor = TextExtractor(pretrained_model=parameters['text_feature_extractor']) # [128, 768]
     image_adaptor = Adaptor(input_dim=parameters['image_input_dim'], projection_dim=parameters['adaptor_output_dim'], data_type='image') # [128, 256]
@@ -428,6 +428,7 @@ def main(variables_dict=None):
     confidence_list[20:] = 0.8
     
     for i, confidence_threshold in enumerate(confidence_list):
+        os.makedirs(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}"), exist_ok=True)
         if i == 0:
             data = pd.read_csv(parameters['placepulse_datapath'])
             mu, std = norm.fit(data['Score'])
@@ -457,12 +458,30 @@ def main(variables_dict=None):
             # 触发早停机制
             early_stopping(val_loss / len(valid_loader))
             if early_stopping.best_loss == val_loss / len(valid_loader):
-                torch.save(model.state_dict(), os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], parameters['safety_model_save_name']))
-                print("Model saved at ", os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], parameters['safety_model_save_name']))
+                torch.save(model.state_dict(), os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  parameters['safety_model_save_name']))
+                print("Model saved at ", os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  parameters['safety_model_save_name']))
 
             if early_stopping.early_stop:
                 print("Early stopping")
                 break        
+
+        torch.save(model.state_dict(), os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  {parameters['safety_model_save_name']}))
+        print("Model saved at ", os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  parameters['safety_model_save_name']))
+        
+        f1, cm, all_preds, all_labels = model_test(model, test_loader, LLM_model=LLM_pre_extractor)
+        parameters['accuracy'] = cm.diagonal().sum() / cm.sum()
+        parameters['f1_score'] = f1
+        
+        pd.DataFrame(parameters).to_csv(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  'parameters.csv'))
+        print("Parameters saved at ", os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  'parameters.csv'))    
+
+        fig, ax = plt.subplots()
+        sns.heatmap(cm, annot=True, ax=ax, cmap='Blues', fmt='g')
+        ax.set_xlabel('Predicted labels')
+        ax.set_ylabel('True labels')
+        ax.set_title('Confusion Matrix')
+        plt.savefig(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  'confusion_matrix.png'), dpi=300, bbox_inches='tight')
+   
 
         if data_fulfilled:
             print("Data fulfilled")
@@ -484,22 +503,22 @@ def main(variables_dict=None):
             data_fulfilled = True
 
 
-    torch.save(model.state_dict(), os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], parameters['safety_model_save_name']))
-    print("Model saved at ", os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], parameters['safety_model_save_name']))
+    # torch.save(model.state_dict(), os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], parameters['safety_model_save_name']))
+    # print("Model saved at ", os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], parameters['safety_model_save_name']))
     
-    f1, cm, all_preds, all_labels = model_test(model, test_loader, LLM_model=LLM_pre_extractor)
-    parameters['accuracy'] = cm.diagonal().sum() / cm.sum()
-    parameters['f1_score'] = f1
+    # f1, cm, all_preds, all_labels = model_test(model, test_loader, LLM_model=LLM_pre_extractor)
+    # parameters['accuracy'] = cm.diagonal().sum() / cm.sum()
+    # parameters['f1_score'] = f1
     
-    pd.DataFrame(parameters).to_csv(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], 'parameters.csv'))
-    print("Parameters saved at ", os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], 'parameters.csv'))    
+    # pd.DataFrame(parameters).to_csv(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], 'parameters.csv'))
+    # print("Parameters saved at ", os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], 'parameters.csv'))    
 
-    fig, ax = plt.subplots()
-    sns.heatmap(cm, annot=True, ax=ax, cmap='Blues', fmt='g')
-    ax.set_xlabel('Predicted labels')
-    ax.set_ylabel('True labels')
-    ax.set_title('Confusion Matrix')
-    plt.savefig(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], 'confusion_matrix.png'), dpi=300, bbox_inches='tight')
+    # fig, ax = plt.subplots()
+    # sns.heatmap(cm, annot=True, ax=ax, cmap='Blues', fmt='g')
+    # ax.set_xlabel('Predicted labels')
+    # ax.set_ylabel('True labels')
+    # ax.set_title('Confusion Matrix')
+    # plt.savefig(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], 'confusion_matrix.png'), dpi=300, bbox_inches='tight')
    
 if __name__ == '__main__':
     variables_dict = { 'lr':[1e-5], # np.linspace(1e-6, 1e-5, 5), # [0.001, 1e-4, 1e-5, 1e-6, 1e-7]
