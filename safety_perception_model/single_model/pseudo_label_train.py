@@ -431,7 +431,7 @@ def main(variables_dict=None):
         if i == 0:
             data = pd.read_csv(parameters['placepulse_datapath'])
             mu, std = norm.fit(data['Score'])
-            std_threshold = 2.5
+            std_threshold = 2
             data['label'] = 0
             data.loc[data[data['Score'] > mu + std_threshold * std].index, 'label'] = 1
             data.loc[data[data['Score'] < mu - std_threshold * std].index, 'label'] = -1

@@ -1,5 +1,5 @@
 # generate baseline data
-# python /code/LLM-crime/generate_dataset.py --visible-device "3" --age "baseline" --gender "baseline" --location "baseline" --event "baseline" --img-type "PlacePulse" --start-from 0 --data-num 5264 --batch-size 4
+# python /code/LLM-crime/generate_dataset.py --visible-device "3" --age "baseline" --gender "baseline" --location "baseline" --event "baseline" --img-type "PlacePulse" --start-from 3084 --data-num 5264 --batch-size 4
 
 # python /code/LLM-crime/generate_dataset.py --visible-device "1" --age "baseline" --gender "baseline" --location "baseline" --event "baseline" --img-type "GSV" --start-from 0 --data-num 4989 --batch-size 6
 # python /code/LLM-crime/generate_dataset.py --visible-device "2" --age "30" --gender "male" --location "HongKong" --event "murder" --img-type "GSV" --start-from 1900 --data-num 4989 --batch-size 4
@@ -44,6 +44,8 @@ parser.add_argument('--specific-img', default=False, type=bool,
 parser.add_argument('--img-type', default='GSV', type=str,
                     help='GSV or PlacePulse')
 parser.add_argument('--reference-dataset', default="/data1/cehou_data/LLM_safety/img_text_data/dataset_baseline_baseline_baseline_baseline_501.pkl", type=str,
+                    help='event of virtual agent for safety perception')
+parser.add_argument('--metadata-path', default="/data2/cehou/LLM_safety/img_text_data/data_need_generated/dataset_60_female_HongKong_traffic accident_GSV_notprocess_1341.csv", type=str,
                     help='event of virtual agent for safety perception')
 parser.add_argument('--start-from', default=0, type=int,
                     help='event of virtual agent for safety perception')
@@ -215,12 +217,15 @@ if __name__ == '__main__':
     # GSV dataset
     if args.img_type == 'GSV':
         GSV_rootpath = "/data2/cehou/LLM_safety/GSV/HK_imgs"
-        GSV_metadata_path = '/data2/cehou/LLM_safety/GSV/GSV_metadata_sampled_5000.csv' # Hong Kong SVI
+        GSV_metadata_path = args.metadata_path
+        # GSV_metadata_path = '/data2/cehou/LLM_safety/GSV/GSV_metadata_sampled_5000.csv' # Hong Kong SVI
+        # GSV_metadata_path = '/data2/cehou/LLM_safety/img_text_data/data_need_generated/dataset_30_male_HongKong_traffic accident_GSV_notprocess_271.csv' # Hong Kong SVI
         GSV_metadata = pd.read_csv(GSV_metadata_path)
     elif args.img_type == 'PlacePulse':
         GSV_rootpath = "/data2/cehou/LLM_safety/PlacePulse2.0/photo_dataset/final_photo_dataset"
+        GSV_metadata_path = args.metadata_path
         # GSV_metadata_path = '/data2/cehou/LLM_safety/PlacePulse2.0/train_data_need_label.csv' # Place Pulse SVI
-        GSV_metadata_path = "/data2/cehou/LLM_safety/PlacePulse2.0/train_data_5264_notprocess.csv"
+        # GSV_metadata_path = "/data2/cehou/LLM_safety/PlacePulse2.0/train_data_5264_notprocess.csv"
         GSV_metadata = pd.read_csv(GSV_metadata_path) 
         
     if args.specific_img == False:  
@@ -250,7 +255,10 @@ if __name__ == '__main__':
     for idx in tqdm(range(len(select_range)-1)):
         sub_range = np.arange(select_range[idx], select_range[idx+1])
         print(f"Processing {sub_range}")
-        GSV_imgs = [Image.fromarray(get_img(GSV_metadata, GSV_rootpath, i, img_size, "PlacePulse")) for i in sub_range]
+        if args.img_type == 'PlacePulse':
+            GSV_imgs = [Image.fromarray(get_img(GSV_metadata, GSV_rootpath, i, img_size, "PlacePulse")) for i in sub_range]
+        elif args.img_type == 'GSV':
+            GSV_imgs = [get_img(GSV_metadata, GSV_rootpath, i, img_size, "GSV") for i in sub_range]
 
         if args.gender == "baseline":
             print("baseline")
