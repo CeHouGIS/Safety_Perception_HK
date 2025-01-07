@@ -306,10 +306,21 @@ def pseudo_label_generation(model, test_loader, criterion, confidence_threshold=
     confidence_threshold = confidence_threshold
     max_probs, _ = torch.max(probabilities, dim=1)
     high_confidence_mask = max_probs > confidence_threshold
+    # 从all_pseudo_labels中挑选等量的分类样本作为mask
+    class_counts = Counter(all_pseudo_labels.numpy())
+    min_class_count = min(class_counts.values())
+
+    balanced_mask = torch.zeros_like(high_confidence_mask, dtype=torch.bool)
+    for label in class_counts.keys():
+        label_indices = torch.where(all_pseudo_labels == label)[0]
+        selected_indices = label_indices[torch.randperm(len(label_indices))[:min_class_count]]
+        balanced_mask[selected_indices] = True
+
+    balanced_high_confidence_mask = high_confidence_mask & balanced_mask
     
     # y_high_confidence_idx = all_pseudo_labels[high_confidence_mask]
-    y_high_confidence_idx = torch.where(high_confidence_mask == 1)[0]
-
+    y_high_confidence_idx = torch.where(balanced_high_confidence_mask == 1)[0]
+    print(balanced_high_confidence_mask, y_high_confidence_idx)
     return all_pseudo_labels, y_high_confidence_idx
 
 def make_loaders(data_ls, data_test, parameters):
@@ -428,6 +439,8 @@ def main(variables_dict=None):
     confidence_list[20:] = 0.8
     
     for i, confidence_threshold in enumerate(confidence_list):
+        parameters['train_loss_list'] = []
+        parameters['val_loss_list'] = []
         os.makedirs(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}"), exist_ok=True)
         if i == 0:
             data = pd.read_csv(parameters['placepulse_datapath'])
@@ -514,23 +527,6 @@ def main(variables_dict=None):
             data_fulfilled = True
 
 
-    # torch.save(model.state_dict(), os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], parameters['safety_model_save_name']))
-    # print("Model saved at ", os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], parameters['safety_model_save_name']))
-    
-    # f1, cm, all_preds, all_labels = model_test(model, test_loader, LLM_model=LLM_pre_extractor)
-    # parameters['accuracy'] = cm.diagonal().sum() / cm.sum()
-    # parameters['f1_score'] = f1
-    
-    # pd.DataFrame(parameters).to_csv(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], 'parameters.csv'))
-    # print("Parameters saved at ", os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], 'parameters.csv'))    
-
-    # fig, ax = plt.subplots()
-    # sns.heatmap(cm, annot=True, ax=ax, cmap='Blues', fmt='g')
-    # ax.set_xlabel('Predicted labels')
-    # ax.set_ylabel('True labels')
-    # ax.set_title('Confusion Matrix')
-    # plt.savefig(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], 'confusion_matrix.png'), dpi=300, bbox_inches='tight')
-   
 if __name__ == '__main__':
     variables_dict = { 'lr':[1e-5], # np.linspace(1e-6, 1e-5, 5), # [0.001, 1e-4, 1e-5, 1e-6, 1e-7]
                       'adaptor_output_dim':[256],
