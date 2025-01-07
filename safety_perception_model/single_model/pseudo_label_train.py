@@ -25,7 +25,7 @@ from collections import Counter
 from sklearn.metrics import r2_score
 import shutil
 from itertools import product
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 
 
 # 创建模型实例
@@ -417,7 +417,7 @@ def main(variables_dict=None):
     if not os.path.exists(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'])):
         os.makedirs(os.path.join(parameters['safety_save_path'], parameters['subfolder_name']))
         
-    device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
     image_extractor = ImageExtractor(pretrained_model=parameters['visual_feature_extractor']) # [128, 512]
     text_extractor = TextExtractor(pretrained_model=parameters['text_feature_extractor']) # [128, 768]
     image_adaptor = Adaptor(input_dim=parameters['image_input_dim'], projection_dim=parameters['adaptor_output_dim'], data_type='image') # [128, 256]
@@ -483,7 +483,7 @@ def main(variables_dict=None):
         torch.save(model.state_dict(), os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  parameters['safety_model_save_name']))
         print("Model saved at ", os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  parameters['safety_model_save_name']))
         
-        _, cm_train, _, _ = model_test(model, train_loader, LLM_model=LLM_pre_extractor)
+        f1_train, cm_train, _, _ = model_test(model, train_loader, LLM_model=LLM_pre_extractor)
         fig, ax = plt.subplots()
         sns.heatmap(cm_train, annot=True, ax=ax, cmap='Blues', fmt='g')
         ax.set_xlabel('Predicted labels')
@@ -493,6 +493,7 @@ def main(variables_dict=None):
         plt.clf()
         
         f1, cm, all_preds, all_labels = model_test(model, test_loader, LLM_model=LLM_pre_extractor)
+        print(cm)
         fig, ax = plt.subplots()
         sns.heatmap(cm, annot=True, ax=ax, cmap='Blues', fmt='g')
         ax.set_xlabel('Predicted labels')
@@ -501,8 +502,9 @@ def main(variables_dict=None):
         plt.savefig(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  'confusion_matrix_test.png'), dpi=300, bbox_inches='tight')
 
         parameters['accuracy'] = cm.diagonal().sum() / cm.sum()
-        parameters['f1_score'] = f1
-        
+        parameters['f1_score_train'] = f1_train
+        parameters['f1_score_test'] = f1
+
         pd.DataFrame(parameters).to_csv(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  'parameters.csv'))
         print("Parameters saved at ", os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  'parameters.csv'))    
 
