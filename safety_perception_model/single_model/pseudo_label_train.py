@@ -434,6 +434,8 @@ def main(variables_dict=None):
             mu, std = norm.fit(data['Score'])
             std_threshold = 2
             data['label'] = 0
+            data = data[(data['Score'] < (mu - std)) | (data['Score'] > (mu + std))]
+            
             data.loc[data[data['Score'] > mu + std_threshold * std].index, 'label'] = 1
             data.loc[data[data['Score'] < mu - std_threshold * std].index, 'label'] = -1
             data_ls = data[data['label'] != 0].reset_index(drop=True)
@@ -465,23 +467,32 @@ def main(variables_dict=None):
                 print("Early stopping")
                 break        
 
-        torch.save(model.state_dict(), os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  {parameters['safety_model_save_name']}))
+        torch.save(model.state_dict(), os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  parameters['safety_model_save_name']))
         print("Model saved at ", os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  parameters['safety_model_save_name']))
         
+        _, cm_train, _, _ = model_test(model, train_loader, LLM_model=LLM_pre_extractor)
+        fig, ax = plt.subplots()
+        sns.heatmap(cm_train, annot=True, ax=ax, cmap='Blues', fmt='g')
+        ax.set_xlabel('Predicted labels')
+        ax.set_ylabel('True labels')
+        ax.set_title(f'Confusion Matrix in train set at round {i}')
+        plt.savefig(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  'confusion_matrix_train.png'), dpi=300, bbox_inches='tight')
+        plt.clf()
+        
         f1, cm, all_preds, all_labels = model_test(model, test_loader, LLM_model=LLM_pre_extractor)
+        fig, ax = plt.subplots()
+        sns.heatmap(cm, annot=True, ax=ax, cmap='Blues', fmt='g')
+        ax.set_xlabel('Predicted labels')
+        ax.set_ylabel('True labels')
+        ax.set_title(f'Confusion Matrix in text set at round {i}')
+        plt.savefig(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  'confusion_matrix_test.png'), dpi=300, bbox_inches='tight')
+
         parameters['accuracy'] = cm.diagonal().sum() / cm.sum()
         parameters['f1_score'] = f1
         
         pd.DataFrame(parameters).to_csv(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  'parameters.csv'))
         print("Parameters saved at ", os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  'parameters.csv'))    
 
-        fig, ax = plt.subplots()
-        sns.heatmap(cm, annot=True, ax=ax, cmap='Blues', fmt='g')
-        ax.set_xlabel('Predicted labels')
-        ax.set_ylabel('True labels')
-        ax.set_title('Confusion Matrix')
-        plt.savefig(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  'confusion_matrix.png'), dpi=300, bbox_inches='tight')
-   
 
         if data_fulfilled:
             print("Data fulfilled")
