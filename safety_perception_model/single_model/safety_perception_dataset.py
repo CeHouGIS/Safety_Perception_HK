@@ -123,11 +123,14 @@ class MultimodalSafetyPerceptionDataset(Dataset):
             self.tokenizer = transformers.DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
 
         self.transform = transform
+        # self.img_path = "/data2/cehou/LLM_safety/PlacePulse2.0/photo_dataset/final_photo_dataset/"
 
-        self.img_path = "/data2/cehou/LLM_safety/PlacePulse2.0/photo_dataset/final_photo_dataset/"
         self.paras = paras
         self.SVI_type = SVI_type
-
+        if SVI_type == 'GSV':
+            self.img_path = "/data2/cehou/LLM_safety/GSV/HK_imgs"
+        elif SVI_type == 'placepulse':
+            self.img_path = "/data2/cehou/LLM_safety/PlacePulse2.0/photo_dataset/final_photo_dataset/"
     def __len__(self):
         return len(self.data)
 

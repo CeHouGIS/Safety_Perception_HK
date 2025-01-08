@@ -282,10 +282,10 @@ if __name__ == '__main__':
             ] for i in range(len(sub_range))]
 
         answers = chat_process_batch(question_list, sub_range, GSV_imgs, max_new_tokens=args.max_new_tokens)
-        print(answers)
+        # print(answers)
         # answer_list.append([idx, answer])
         dataset_list.append(pd.DataFrame(generate_dataset_block(sub_range, list(GSV_metadata.iloc[sub_range]['panoid']), GSV_rootpath, answers, profile, 'GSV')))
-        if idx % 10 == 0:
+        if idx % 5 == 0:
             tem = pd.DataFrame()
             for i in range(len(dataset_list)):
                 tem = pd.concat([tem, dataset_list[i]], axis=0)

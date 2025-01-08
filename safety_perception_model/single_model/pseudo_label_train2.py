@@ -1,4 +1,4 @@
-# python /code/LLM-crime/safety_perception_model/single_model/pseudo_label_train.py
+# python /code/LLM-crime/safety_perception_model/single_model/pseudo_label_train2.py
 import os
 import torch
 import torch.nn as nn
@@ -331,14 +331,14 @@ def make_loaders(data_ls, data_test, parameters):
 
     if parameters['LLM_loaded'] == True:
         LLM_pre_extractor = LLMImageFeaturePrextractor(process=parameters['LLM_image_feature_process'])
-        train_dataset = MultimodalSafetyPerceptionDataset(data_ls[:train_num], tokenizer=parameters['text_feature_extractor'], paras=parameters)
-        valid_dataset = MultimodalSafetyPerceptionDataset(data_ls[train_num:train_num+valid_num], tokenizer=parameters['text_feature_extractor'], paras=parameters)
-        test_dataset = MultimodalSafetyPerceptionDataset(data_test, tokenizer=parameters['text_feature_extractor'], transform=transform, paras=parameters)
+        train_dataset = MultimodalSafetyPerceptionDataset(data_ls[:train_num], tokenizer=parameters['text_feature_extractor'], paras=parameters, SVI_type=parameters['SVI_type'])
+        valid_dataset = MultimodalSafetyPerceptionDataset(data_ls[train_num:train_num+valid_num], tokenizer=parameters['text_feature_extractor'], paras=parameters, SVI_type=parameters['SVI_type'])
+        test_dataset = MultimodalSafetyPerceptionDataset(data_test, tokenizer=parameters['text_feature_extractor'], transform=transform, paras=parameters, SVI_type=parameters['SVI_type'])
     else:
         LLM_pre_extractor = None
-        train_dataset = MultimodalSafetyPerceptionDataset(data_ls[:train_num], tokenizer=parameters['text_feature_extractor'], transform=transform, paras=parameters)
-        valid_dataset = MultimodalSafetyPerceptionDataset(data_ls[train_num:train_num+valid_num], tokenizer=parameters['text_feature_extractor'], transform=transform, paras=parameters)
-        test_dataset = MultimodalSafetyPerceptionDataset(data_test, tokenizer=parameters['text_feature_extractor'], transform=transform, paras=parameters)
+        train_dataset = MultimodalSafetyPerceptionDataset(data_ls[:train_num], tokenizer=parameters['text_feature_extractor'], transform=transform, paras=parameters, SVI_type=parameters['SVI_type'])
+        valid_dataset = MultimodalSafetyPerceptionDataset(data_ls[train_num:train_num+valid_num], tokenizer=parameters['text_feature_extractor'], transform=transform, paras=parameters, SVI_type=parameters['SVI_type'])
+        test_dataset = MultimodalSafetyPerceptionDataset(data_test, tokenizer=parameters['text_feature_extractor'], transform=transform, paras=parameters, SVI_type=parameters['SVI_type'])
         
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=parameters['batch_size'], shuffle=True)
     valid_loader = torch.utils.data.DataLoader(valid_dataset, batch_size=parameters['batch_size'])
@@ -383,11 +383,12 @@ def main(variables_dict=None):
     # parameters
     parameters = {
         'train_type': "classification",
-        'placepulse_datapath': "/data2/cehou/LLM_safety/img_text_data/baseline/tidyed/dataset_baseline_baseline_baseline_baseline_14294_withlabel.csv",
+        'placepulse_datapath': "/data2/cehou/LLM_safety/img_text_data/finished/dataset_60_female_HongKong_traffic accident_all_4685.pkl",
         'safety_save_path' : f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/",
         'safety_model_save_name':"model_baseline.pt",
         'subfolder_name': 'baseline',
-        'load_pretrain_model': False,
+        'load_pretrain_model': "/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/pseudo_label_20250103/lr_1e-05_adaptor_output_dim_256_mix_process_concat/model_baseline_lr_1e-05_adaptor_output_dim_256_mix_process_concat.pt",
+        'SVI_type': 'GSV',
         
         # model training parameters
         'num_epochs': 199,
@@ -418,7 +419,7 @@ def main(variables_dict=None):
     if not os.path.exists(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'])):
         os.makedirs(os.path.join(parameters['safety_save_path'], parameters['subfolder_name']))
         
-    device = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     image_extractor = ImageExtractor(pretrained_model=parameters['visual_feature_extractor']) # [128, 512]
     text_extractor = TextExtractor(pretrained_model=parameters['text_feature_extractor']) # [128, 768]
     image_adaptor = Adaptor(input_dim=parameters['image_input_dim'], projection_dim=parameters['adaptor_output_dim'], data_type='image') # [128, 256]
@@ -426,6 +427,9 @@ def main(variables_dict=None):
     mixer = Mixer(output_dim=parameters['mixer_output_dim'], process=parameters['mix_process']) # [128, 512]
     classifier = Classifier(input_dim=parameters['mixer_output_dim'], num_classes=parameters['num_classes']) # [128, 2]
     model = MultiModalModel(image_extractor, text_extractor, image_adaptor, text_adaptor, mixer, classifier).to(device)
+    if parameters['load_pretrain_model'] is not None:
+        print("Load pretrain model")
+        model.load_state_dict(torch.load(parameters['load_pretrain_model']), strict=False)
     print(model)
 
     # 损失函数和优化器
@@ -444,22 +448,52 @@ def main(variables_dict=None):
         parameters['val_loss_list'] = []
         os.makedirs(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}"), exist_ok=True)
         if i == 0:
-            data = pd.read_csv(parameters['placepulse_datapath'])
-            mu, std = norm.fit(data['Score'])
-            std_threshold = 2
-            data['label'] = 0
-            data = data[(data['Score'] < (mu - std)) | (data['Score'] > (mu + std))]
-            
-            data.loc[data[data['Score'] > mu + std_threshold * std].index, 'label'] = 1
-            data.loc[data[data['Score'] < mu - std_threshold * std].index, 'label'] = -1
-            data_ls = data[data['label'] != 0].reset_index(drop=True)
-            data_test = data[data['label'] == 0].reset_index(drop=True)
-            data_ls['label'] = data_ls['label'].apply(lambda x: 1 if x == 1 else 0)
-        
+            if parameters['load_pretrain_model'] is None:
+                print('train the model')
+                data = pd.read_csv(parameters['placepulse_datapath'])
+                mu, std = norm.fit(data['Score'])
+                std_threshold = 2
+                data['label'] = 0
+                data = data[(data['Score'] < (mu - std)) | (data['Score'] > (mu + std))]
+                
+                data.loc[data[data['Score'] > mu + std_threshold * std].index, 'label'] = 1
+                data.loc[data[data['Score'] < mu - std_threshold * std].index, 'label'] = -1
+                data_ls = data[data['label'] != 0].reset_index(drop=True)
+                data_test = data[data['label'] == 0].reset_index(drop=True)
+                data_ls['label'] = data_ls['label'].apply(lambda x: 1 if x == 1 else 0)    
+                
+                train_loader, valid_loader, test_loader, LLM_pre_extractor = make_loaders(data_ls, data_test, parameters)
+ 
+                
+            else:
+                if parameters['placepulse_datapath'].endswith('.csv'):
+                    data = pd.read_csv(parameters['placepulse_datapath'])
+                elif parameters['placepulse_datapath'].endswith('.pkl'):
+                    data = pd.read_pickle(parameters['placepulse_datapath'])
+                    
+                data['label'] = 0
+                data = data.rename(columns={'text_description_age': 'text_description_short',
+                                            'panoid': 'Image_ID',})
+                data_ls = data.sample(n=parameters['batch_size'], random_state=1).reset_index(drop=True)
+                data_test = data.copy()
+                train_loader, valid_loader, test_loader, LLM_pre_extractor = make_loaders(data_ls, data_test, parameters, )
+                pseudo_labels, y_high_confidence_idx = pseudo_label_generation(model, test_loader, criterion, confidence_threshold=0.95)
+                pseudo_labels = pseudo_labels.cpu().numpy()
+                y_high_confidence_idx = y_high_confidence_idx.cpu().numpy()
+                print("update data labels")
+                
+                # print(pseudo_labels, y_high_confidence_idx)
+                for i,idx in tqdm(enumerate(y_high_confidence_idx)):
+                    data_test.loc[idx, 'label'] = pseudo_labels[i]
+                data_update = data_test.iloc[y_high_confidence_idx].reset_index(drop=True)
+                data_ls = data_update.copy()
+                data_test = data_test[~data_test.index.isin(y_high_confidence_idx)].reset_index(drop=True)
+
         print(f"Data size: {len(data_ls)}, Test data size: {len(data_test)}")
 
-        # initialize
-        train_loader, valid_loader, test_loader, LLM_pre_extractor = make_loaders(data_ls, data_test, parameters)
+        if i > 0:
+            # initialize
+            train_loader, valid_loader, test_loader, LLM_pre_extractor = make_loaders(data_ls, data_test, parameters)
         
         early_stopping = EarlyStopping(patience=5, verbose=True)
         for epoch in range(parameters["num_epochs"]):    
@@ -518,10 +552,11 @@ def main(variables_dict=None):
         pseudo_labels = pseudo_labels.cpu().numpy()
         y_high_confidence_idx = y_high_confidence_idx.cpu().numpy()
         print("update data labels")
-        data_update = data_test.iloc[y_high_confidence_idx].reset_index(drop=True)
+        
         # print(pseudo_labels, y_high_confidence_idx)
         for i,idx in tqdm(enumerate(y_high_confidence_idx)):
             data_test.loc[idx, 'label'] = pseudo_labels[i]
+        data_update = data_test.iloc[y_high_confidence_idx].reset_index(drop=True)
         data_ls = pd.concat([data_ls, data_update], axis=0).reset_index(drop=True)
         # data_ls['label'] = data_ls['label'].apply(lambda x: 1 if x == 1 else 0)
         data_test = data_test[~data_test.index.isin(y_high_confidence_idx)].reset_index(drop=True)
@@ -543,7 +578,7 @@ if __name__ == '__main__':
         print(combination)
         input_dict = dict(zip(variables_dict.keys(), combination))
         input_dict['subfolder_name'] = '_'.join([f"{key}_{value}" for key, value in input_dict.items()])
-        input_dict['safety_save_path'] = f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/pseudo_label_20250104"
+        input_dict['safety_save_path'] = f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/pseudo_label_from_pretrain_20250108"
         os.makedirs(input_dict['safety_save_path'], exist_ok=True)
 
         input_dict['mixer_output_dim'] = input_dict['adaptor_output_dim'] * 2
