@@ -303,6 +303,7 @@ def pseudo_label_generation(model, test_loader, criterion, confidence_threshold=
 
     all_pseudo_labels = torch.tensor(all_pseudo_labels)
     probabilities = torch.tensor(all_probabilities)
+    print(probabilities)
     confidence_threshold = confidence_threshold
     max_probs, _ = torch.max(probabilities, dim=1)
     high_confidence_mask = max_probs > confidence_threshold
@@ -387,7 +388,7 @@ def main(variables_dict=None):
         'safety_save_path' : f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/",
         'safety_model_save_name':"model_baseline.pt",
         'subfolder_name': 'baseline',
-        'load_pretrain_model': "/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/pseudo_label_20250103/lr_1e-05_adaptor_output_dim_256_mix_process_concat/model_baseline_lr_1e-05_adaptor_output_dim_256_mix_process_concat.pt",
+        'load_pretrain_model': "/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/diff_concat_20241230/lr_1e-05_adaptor_output_dim_256_mix_process_concat/model_baseline_lr_1e-05_adaptor_output_dim_256_mix_process_concat.pt",
         'SVI_type': 'GSV',
         
         # model training parameters
@@ -439,9 +440,9 @@ def main(variables_dict=None):
                         
     data_fulfilled = False
     confidence_list = np.zeros(50)
-    confidence_list[:10] = 0.95
-    confidence_list[10:20] = 0.9
-    confidence_list[20:] = 0.8
+    confidence_list[:10] = 0.9
+    confidence_list[10:20] = 0.8
+    confidence_list[20:] = 0.85
     
     for i, confidence_threshold in enumerate(confidence_list):
         parameters['train_loss_list'] = []
@@ -477,17 +478,19 @@ def main(variables_dict=None):
                 data_ls = data.sample(n=parameters['batch_size'], random_state=1).reset_index(drop=True)
                 data_test = data.copy()
                 train_loader, valid_loader, test_loader, LLM_pre_extractor = make_loaders(data_ls, data_test, parameters, )
-                pseudo_labels, y_high_confidence_idx = pseudo_label_generation(model, test_loader, criterion, confidence_threshold=0.95)
+                pseudo_labels, y_high_confidence_idx = pseudo_label_generation(model, test_loader, criterion, confidence_threshold=0.8)
                 pseudo_labels = pseudo_labels.cpu().numpy()
                 y_high_confidence_idx = y_high_confidence_idx.cpu().numpy()
                 print("update data labels")
                 
                 # print(pseudo_labels, y_high_confidence_idx)
-                for i,idx in tqdm(enumerate(y_high_confidence_idx)):
-                    data_test.loc[idx, 'label'] = pseudo_labels[i]
+                for j,idx in tqdm(enumerate(y_high_confidence_idx)):
+                    data_test.loc[idx, 'label'] = pseudo_labels[j]
                 data_update = data_test.iloc[y_high_confidence_idx].reset_index(drop=True)
                 data_ls = data_update.copy()
                 data_test = data_test[~data_test.index.isin(y_high_confidence_idx)].reset_index(drop=True)
+                print(f"Confidence threshold: {0.85}, High confidence samples: {len(y_high_confidence_idx)}, updated data samples: {len(data_ls)}, rest test samples: {len(data_test)}")
+
 
         print(f"Data size: {len(data_ls)}, Test data size: {len(data_test)}")
 
@@ -561,7 +564,7 @@ def main(variables_dict=None):
         # data_ls['label'] = data_ls['label'].apply(lambda x: 1 if x == 1 else 0)
         data_test = data_test[~data_test.index.isin(y_high_confidence_idx)].reset_index(drop=True)
         print(f"Confidence threshold: {confidence_threshold}, High confidence samples: {len(y_high_confidence_idx)}, updated data samples: {len(data_ls)}, rest test samples: {len(data_test)}")
-        if len(data_ls) > 0.6 * (len(data_ls) + len(data_test)):
+        if len(data_ls) > 0.2 * (len(data_ls) + len(data_test)):
             data_fulfilled = True
 
 
