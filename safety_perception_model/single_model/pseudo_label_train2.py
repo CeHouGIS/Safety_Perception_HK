@@ -258,7 +258,7 @@ def train(model, pbar, criterion, optimizer, LLM_model=None):
         data, description, attention_mask, target = data.cuda(), description.cuda().long(), attention_mask.cuda().long(), target.cuda()
         optimizer.zero_grad()  # 清零梯度
         output = model(data, description, attention_mask)  # 获取模型输出
-        loss = criterion(output, target)
+        loss = criterion(output, target.long())
 
         # target_one_hot = F.one_hot(target, num_classes=2).float()
         # loss = criterion(output, target_one_hot)
@@ -303,7 +303,7 @@ def pseudo_label_generation(model, test_loader, criterion, confidence_threshold=
 
     all_pseudo_labels = torch.tensor(all_pseudo_labels)
     probabilities = torch.tensor(all_probabilities)
-    print(probabilities)
+    # print(probabilities)
     confidence_threshold = confidence_threshold
     max_probs, _ = torch.max(probabilities, dim=1)
     high_confidence_mask = max_probs > confidence_threshold
@@ -392,7 +392,7 @@ def main(variables_dict=None):
         'SVI_type': 'GSV',
         
         # model training parameters
-        'num_epochs': 199,
+        'num_epochs': 20,
         'visual_feature_extractor': 'ViT',
         'text_feature_extractor': 'Bert',
         'batch_size': 128,
@@ -439,10 +439,11 @@ def main(variables_dict=None):
     optimizer = optim.Adam(model.parameters(), lr=parameters['lr'])
                         
     data_fulfilled = False
-    confidence_list = np.zeros(50)
-    confidence_list[:10] = 0.9
-    confidence_list[10:20] = 0.8
-    confidence_list[20:] = 0.85
+    # confidence_list = np.zeros(50)
+    # confidence_list[:10] = 0.9
+    # confidence_list[10:20] = 0.8
+    # confidence_list[20:] = 0.85
+    confidence_list = [0.85,0.85,0.85]
     
     for i, confidence_threshold in enumerate(confidence_list):
         parameters['train_loss_list'] = []
@@ -484,7 +485,7 @@ def main(variables_dict=None):
                 # repeat for 5 times
                 for j in range(5):
                     print(f"Round {i}, repeat {j}/5")
-                    pseudo_labels, y_high_confidence_idx = pseudo_label_generation(model, test_loader, criterion, confidence_threshold=0.85)
+                    pseudo_labels, y_high_confidence_idx = pseudo_label_generation(model, test_loader, criterion, confidence_threshold=0.75)
                     pseudo_labels = pseudo_labels.cpu().numpy()
                     y_high_confidence_idx = y_high_confidence_idx.cpu().numpy()
                     # selected_y_high_confidence_idx = y_high_confidence_idx
@@ -493,7 +494,7 @@ def main(variables_dict=None):
                     all_pseudo_labels.append(pseudo_labels)
                     # print(pseudo_labels, y_high_confidence_idx)                    
                 selected_y_high_confidence_idx = Counter(np.concatenate(all_y_high_confidence_idx)).most_common(parameters['batch_size'])
-                print(selected_y_high_confidence_idx)
+                print(all_pseudo_labels)
                 print("update data labels")
                 selected_idx = []
                 for j,(idx,fren) in tqdm(enumerate(selected_y_high_confidence_idx)):
@@ -504,8 +505,9 @@ def main(variables_dict=None):
                 print(len(selected_idx) ,selected_idx)
                 data_update = data_test.iloc[selected_idx].reset_index(drop=True)
                 data_ls = data_update.copy()
+                data_test['label'] = pseudo_labels
                 data_test = data_test[~data_test.index.isin(selected_idx)].reset_index(drop=True)
-                print(f"Confidence threshold: {0.85}, High confidence samples: {len(selected_idx)}, updated data samples: {len(data_ls)}, rest test samples: {len(data_test)}")
+                print(f"Confidence threshold: {0.75}, High confidence samples: {len(selected_idx)}, updated data samples: {len(data_ls)}, rest test samples: {len(data_test)}")
 
 
         print(f"Data size: {len(data_ls)}, Test data size: {len(data_test)}")
@@ -575,7 +577,7 @@ def main(variables_dict=None):
         # print(pseudo_labels, y_high_confidence_idx)
         for i,idx in tqdm(enumerate(y_high_confidence_idx)):
             data_test.loc[idx, 'label'] = pseudo_labels[i]
-        data_update = data_test.iloc[y_high_confidence_idx].reset_index(drop=True)
+        data_update = data_test.loc[y_high_confidence_idx,:].reset_index(drop=True)
         data_ls = pd.concat([data_ls, data_update], axis=0).reset_index(drop=True)
         # data_ls['label'] = data_ls['label'].apply(lambda x: 1 if x == 1 else 0)
         data_test = data_test[~data_test.index.isin(y_high_confidence_idx)].reset_index(drop=True)
