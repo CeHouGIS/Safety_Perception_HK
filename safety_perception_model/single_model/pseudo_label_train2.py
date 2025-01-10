@@ -477,19 +477,35 @@ def main(variables_dict=None):
                                             'panoid': 'Image_ID',})
                 data_ls = data.sample(n=parameters['batch_size'], random_state=1).reset_index(drop=True)
                 data_test = data.copy()
-                train_loader, valid_loader, test_loader, LLM_pre_extractor = make_loaders(data_ls, data_test, parameters, )
-                pseudo_labels, y_high_confidence_idx = pseudo_label_generation(model, test_loader, criterion, confidence_threshold=0.8)
-                pseudo_labels = pseudo_labels.cpu().numpy()
-                y_high_confidence_idx = y_high_confidence_idx.cpu().numpy()
-                print("update data labels")
+                train_loader, valid_loader, test_loader, LLM_pre_extractor = make_loaders(data_ls, data_test, parameters)
                 
-                # print(pseudo_labels, y_high_confidence_idx)
-                for j,idx in tqdm(enumerate(y_high_confidence_idx)):
-                    data_test.loc[idx, 'label'] = pseudo_labels[j]
-                data_update = data_test.iloc[y_high_confidence_idx].reset_index(drop=True)
+                all_y_high_confidence_idx = []
+                all_pseudo_labels = []
+                # repeat for 5 times
+                for j in range(5):
+                    print(f"Round {i}, repeat {j}/5")
+                    pseudo_labels, y_high_confidence_idx = pseudo_label_generation(model, test_loader, criterion, confidence_threshold=0.85)
+                    pseudo_labels = pseudo_labels.cpu().numpy()
+                    y_high_confidence_idx = y_high_confidence_idx.cpu().numpy()
+                    # selected_y_high_confidence_idx = y_high_confidence_idx
+                    
+                    all_y_high_confidence_idx.append(y_high_confidence_idx)
+                    all_pseudo_labels.append(pseudo_labels)
+                    # print(pseudo_labels, y_high_confidence_idx)                    
+                selected_y_high_confidence_idx = Counter(np.concatenate(all_y_high_confidence_idx)).most_common(parameters['batch_size'])
+                print(selected_y_high_confidence_idx)
+                print("update data labels")
+                selected_idx = []
+                for j,(idx,fren) in tqdm(enumerate(selected_y_high_confidence_idx)):
+                    if fren > 1:
+                        pseudo_label = Counter([pseudo_labels[idx] for pseudo_labels in all_pseudo_labels]).most_common(1)[0][0]
+                        data_test.loc[idx, 'label'] = pseudo_label
+                        selected_idx.append(idx)
+                print(len(selected_idx) ,selected_idx)
+                data_update = data_test.iloc[selected_idx].reset_index(drop=True)
                 data_ls = data_update.copy()
-                data_test = data_test[~data_test.index.isin(y_high_confidence_idx)].reset_index(drop=True)
-                print(f"Confidence threshold: {0.85}, High confidence samples: {len(y_high_confidence_idx)}, updated data samples: {len(data_ls)}, rest test samples: {len(data_test)}")
+                data_test = data_test[~data_test.index.isin(selected_idx)].reset_index(drop=True)
+                print(f"Confidence threshold: {0.85}, High confidence samples: {len(selected_idx)}, updated data samples: {len(data_ls)}, rest test samples: {len(data_test)}")
 
 
         print(f"Data size: {len(data_ls)}, Test data size: {len(data_test)}")
