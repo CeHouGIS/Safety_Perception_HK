@@ -281,7 +281,7 @@ def eval(model, valid_loader, criterion, LLM_model=None):
                 data = LLM_pre_extractor([data[i] for i in range(len(data))])
             data, description, attention_mask, target = data.cuda(), description.cuda().long(), attention_mask.cuda().long(), target.cuda()
             output = model(data, description, attention_mask)  # 获取模型输出
-            loss = criterion(output, target)
+            loss = criterion(output, target.long())
             val_loss += loss.item()
     return val_loss 
 
@@ -294,7 +294,7 @@ def pseudo_label_generation(model, test_loader, criterion, confidence_threshold=
         for data, (description, attention_mask), target in tqdm(test_loader):
             data, description, attention_mask, target = data.cuda(), description.cuda().long(), attention_mask.cuda().long(), target.cuda()
             output = model(data, description, attention_mask)  # 获取模型输出
-            loss = criterion(output, target)
+            loss = criterion(output, target.long())
 
             probabilities = torch.softmax(output, dim=1)
             pseudo_labels = torch.argmax(probabilities, dim=1)
@@ -304,36 +304,55 @@ def pseudo_label_generation(model, test_loader, criterion, confidence_threshold=
     all_pseudo_labels = torch.tensor(all_pseudo_labels)
     probabilities = torch.tensor(all_probabilities)
     # print(probabilities)
-    confidence_threshold = confidence_threshold
-    max_probs, _ = torch.max(probabilities, dim=1)
-    high_confidence_mask = max_probs > confidence_threshold
-    # 从all_pseudo_labels中挑选等量的分类样本作为mask
-    class_counts = Counter(all_pseudo_labels.numpy())
-    min_class_count = min(class_counts.values())
 
-    balanced_mask = torch.zeros_like(high_confidence_mask, dtype=torch.bool)
-    for label in class_counts.keys():
-        label_indices = torch.where(all_pseudo_labels == label)[0]
-        selected_indices = label_indices[torch.randperm(len(label_indices))[:min_class_count]]
-        balanced_mask[selected_indices] = True
+    top_indices = []
+    for i in range(probabilities.shape[1]):
+        top_indices.append(np.argsort(probabilities[:, i])[-128:])
 
-    balanced_high_confidence_mask = high_confidence_mask & balanced_mask
-    
-    # y_high_confidence_idx = all_pseudo_labels[high_confidence_mask]
-    y_high_confidence_idx = torch.where(balanced_high_confidence_mask == 1)[0]
-    print(balanced_high_confidence_mask, y_high_confidence_idx)
+    # Combine the indices to get the final high confidence indices
+    y_high_confidence_idx = torch.cat((top_indices[0].flatten(), top_indices[1].flatten())).unique()
+    print(y_high_confidence_idx)
+
+    # with confidence threshold
+    # confidence_threshold = confidence_threshold
+    # max_probs, _ = torch.max(probabilities, dim=1)
+    # high_confidence_mask = max_probs > confidence_threshold
+    # y_high_confidence_idx = torch.where(high_confidence_mask == 1)[0]
+    # class_counts = Counter(high_confidence_mask.numpy())
+    # high_confidence_idx = torch.where(high_confidence_mask == 1)[0]
+    # high_confidence_pseudo_labels = all_pseudo_labels[high_confidence_idx]
+    # # 从all_pseudo_labels中挑选等量的分类样本作为mask
+    # class_counts = Counter(high_confidence_pseudo_labels.numpy())
+    # print(class_counts)
+    # min_class_count = min(class_counts.values())
+    # print(min_class_count)
+
+    # balanced_mask = torch.zeros_like(high_confidence_mask, dtype=torch.bool)
+    # print(balanced_mask)
+    # for label in class_counts.keys():
+    #     label_indices = torch.where(all_pseudo_labels == label)[0]
+    #     selected_indices = label_indices[torch.randperm(len(label_indices))[:min_class_count]]
+    #     balanced_mask[selected_indices] = True
+
+    # balanced_high_confidence_mask = high_confidence_mask & balanced_mask
+    # print(balanced_high_confidence_mask)
+    # # y_high_confidence_idx = all_pseudo_labels[high_confidence_mask]
+    # y_high_confidence_idx = torch.where(balanced_high_confidence_mask == 1)[0]
+    # print(balanced_high_confidence_mask, y_high_confidence_idx)
     return all_pseudo_labels, y_high_confidence_idx
 
 def make_loaders(data_ls, data_test, parameters):
 
     transform = get_transforms((224,224))
-    train_num = int(len(data_ls) * 0.6)
-    valid_num = int(len(data_ls) * 0.2)
-
+    train_num = int(len(data_ls) * 0.7)
+    valid_num = int(len(data_ls) * 0.3)
+    data_ls = data_ls.sample(frac=1).reset_index(drop=True)
+    print(data_ls.loc[:train_num, 'label'].value_counts())
+    
     if parameters['LLM_loaded'] == True:
         LLM_pre_extractor = LLMImageFeaturePrextractor(process=parameters['LLM_image_feature_process'])
-        train_dataset = MultimodalSafetyPerceptionDataset(data_ls[:train_num], tokenizer=parameters['text_feature_extractor'], paras=parameters, SVI_type=parameters['SVI_type'])
-        valid_dataset = MultimodalSafetyPerceptionDataset(data_ls[train_num:train_num+valid_num], tokenizer=parameters['text_feature_extractor'], paras=parameters, SVI_type=parameters['SVI_type'])
+        train_dataset = MultimodalSafetyPerceptionDataset(data_ls.iloc[:train_num], tokenizer=parameters['text_feature_extractor'], paras=parameters, SVI_type=parameters['SVI_type'])
+        valid_dataset = MultimodalSafetyPerceptionDataset(data_ls.iloc[train_num:], tokenizer=parameters['text_feature_extractor'], paras=parameters, SVI_type=parameters['SVI_type'])
         test_dataset = MultimodalSafetyPerceptionDataset(data_test, tokenizer=parameters['text_feature_extractor'], transform=transform, paras=parameters, SVI_type=parameters['SVI_type'])
     else:
         LLM_pre_extractor = None
@@ -364,6 +383,7 @@ def model_test(model, test_loader, LLM_model=None):
             all_labels.extend(target.cpu().numpy())
 
     # 计算混淆矩阵
+    print(len(all_preds), len(all_labels))
     cm = confusion_matrix(all_labels, all_preds)
     # 计算F1分数
     f1 = f1_score(all_labels, all_preds, average='weighted')
@@ -392,7 +412,7 @@ def main(variables_dict=None):
         'SVI_type': 'GSV',
         
         # model training parameters
-        'num_epochs': 20,
+        'num_epochs': 99,
         'visual_feature_extractor': 'ViT',
         'text_feature_extractor': 'Bert',
         'batch_size': 128,
@@ -443,7 +463,7 @@ def main(variables_dict=None):
     # confidence_list[:10] = 0.9
     # confidence_list[10:20] = 0.8
     # confidence_list[20:] = 0.85
-    confidence_list = [0.85,0.85,0.85]
+    confidence_list = [0.85,0.85,0.85,0.85,0.85,0.85]
     
     for i, confidence_threshold in enumerate(confidence_list):
         parameters['train_loss_list'] = []
@@ -483,11 +503,12 @@ def main(variables_dict=None):
                 all_y_high_confidence_idx = []
                 all_pseudo_labels = []
                 # repeat for 5 times
-                for j in range(5):
-                    print(f"Round {i}, repeat {j}/5")
+                for j in range(10):
+                    print(f"Round {i}, repeat {j}/10")
                     pseudo_labels, y_high_confidence_idx = pseudo_label_generation(model, test_loader, criterion, confidence_threshold=0.75)
                     pseudo_labels = pseudo_labels.cpu().numpy()
                     y_high_confidence_idx = y_high_confidence_idx.cpu().numpy()
+                    print(f"Pseudo labels count - 0: {np.sum(pseudo_labels[y_high_confidence_idx] == 0)}, 1: {np.sum(pseudo_labels[y_high_confidence_idx] == 1)}")
                     # selected_y_high_confidence_idx = y_high_confidence_idx
                     
                     all_y_high_confidence_idx.append(y_high_confidence_idx)
@@ -503,7 +524,8 @@ def main(variables_dict=None):
                         data_test.loc[idx, 'label'] = pseudo_label
                         selected_idx.append(idx)
                 print(len(selected_idx) ,selected_idx)
-                data_update = data_test.iloc[selected_idx].reset_index(drop=True)
+                data_update = data_test.loc[selected_idx,:].reset_index(drop=True)
+                print(data_update['label'].value_counts())
                 data_ls = data_update.copy()
                 data_test['label'] = pseudo_labels
                 data_test = data_test[~data_test.index.isin(selected_idx)].reset_index(drop=True)
@@ -513,77 +535,77 @@ def main(variables_dict=None):
         print(f"Data size: {len(data_ls)}, Test data size: {len(data_test)}")
 
         if i > 0:
-            # initialize
+        # initialize
             train_loader, valid_loader, test_loader, LLM_pre_extractor = make_loaders(data_ls, data_test, parameters)
         
-        early_stopping = EarlyStopping(patience=5, verbose=True)
-        for epoch in range(parameters["num_epochs"]):    
-            pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{parameters['num_epochs']}",unit="batch", mininterval=2.0)
-            running_loss = train(model, pbar, criterion, optimizer, LLM_model=LLM_pre_extractor)
-            val_loss = eval(model, valid_loader, criterion, LLM_model=LLM_pre_extractor)
+            early_stopping = EarlyStopping(patience=5, verbose=True)
+            for epoch in range(parameters["num_epochs"]):    
+                pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{parameters['num_epochs']}",unit="batch", mininterval=2.0)
+                running_loss = train(model, pbar, criterion, optimizer, LLM_model=LLM_pre_extractor)
+                val_loss = eval(model, valid_loader, criterion, LLM_model=LLM_pre_extractor)
 
-            # 输出当前epoch的训练和验证损失
-            print(f"Epoch [{epoch + 1}/{parameters['num_epochs']}], Training Loss: {running_loss / len(train_loader):.4f}, Validation Loss: {val_loss / len(valid_loader):.4f}")
-            parameters['train_loss_list'].append(running_loss / len(train_loader))
-            parameters['val_loss_list'].append(val_loss / len(valid_loader))
-            # 触发早停机制
-            early_stopping(val_loss / len(valid_loader))
-            if early_stopping.best_loss == val_loss / len(valid_loader):
-                torch.save(model.state_dict(), os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  parameters['safety_model_save_name']))
-                print("Model saved at ", os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  parameters['safety_model_save_name']))
+                # 输出当前epoch的训练和验证损失
+                print(f"Epoch [{epoch + 1}/{parameters['num_epochs']}], Training Loss: {running_loss / len(train_loader):.4f}, Validation Loss: {val_loss / len(valid_loader):.4f}")
+                parameters['train_loss_list'].append(running_loss / len(train_loader))
+                parameters['val_loss_list'].append(val_loss / len(valid_loader))
+                # 触发早停机制
+                early_stopping(val_loss / len(valid_loader))
+                if early_stopping.best_loss == val_loss / len(valid_loader):
+                    torch.save(model.state_dict(), os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  parameters['safety_model_save_name']))
+                    print("Model saved at ", os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  parameters['safety_model_save_name']))
 
-            if early_stopping.early_stop:
-                print("Early stopping")
-                break        
+                if early_stopping.early_stop:
+                    print("Early stopping")
+                    break        
 
-        torch.save(model.state_dict(), os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  parameters['safety_model_save_name']))
-        print("Model saved at ", os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  parameters['safety_model_save_name']))
-        
-        f1_train, cm_train, _, _ = model_test(model, train_loader, LLM_model=LLM_pre_extractor)
-        fig, ax = plt.subplots()
-        sns.heatmap(cm_train, annot=True, ax=ax, cmap='Blues', fmt='g')
-        ax.set_xlabel('Predicted labels')
-        ax.set_ylabel('True labels')
-        ax.set_title(f'Confusion Matrix in train set at round {i}')
-        plt.savefig(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  'confusion_matrix_train.png'), dpi=300, bbox_inches='tight')
-        plt.clf()
-        
-        f1, cm, all_preds, all_labels = model_test(model, test_loader, LLM_model=LLM_pre_extractor)
-        print(cm)
-        fig, ax = plt.subplots()
-        sns.heatmap(cm, annot=True, ax=ax, cmap='Blues', fmt='g')
-        ax.set_xlabel('Predicted labels')
-        ax.set_ylabel('True labels')
-        ax.set_title(f'Confusion Matrix in text set at round {i}')
-        plt.savefig(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  'confusion_matrix_test.png'), dpi=300, bbox_inches='tight')
+            torch.save(model.state_dict(), os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  parameters['safety_model_save_name']))
+            print("Model saved at ", os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  parameters['safety_model_save_name']))
+            
+            f1_train, cm_train, _, _ = model_test(model, train_loader, LLM_model=LLM_pre_extractor)
+            fig, ax = plt.subplots()
+            sns.heatmap(cm_train, annot=True, ax=ax, cmap='Blues', fmt='g')
+            ax.set_xlabel('Predicted labels')
+            ax.set_ylabel('True labels')
+            ax.set_title(f'Confusion Matrix in train set at round {i}')
+            plt.savefig(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  'confusion_matrix_train.png'), dpi=300, bbox_inches='tight')
+            plt.clf()
+            
+            f1, cm, all_preds, all_labels = model_test(model, test_loader, LLM_model=LLM_pre_extractor)
+            print(cm)
+            fig, ax = plt.subplots()
+            sns.heatmap(cm, annot=True, ax=ax, cmap='Blues', fmt='g')
+            ax.set_xlabel('Predicted labels')
+            ax.set_ylabel('True labels')
+            ax.set_title(f'Confusion Matrix in text set at round {i}')
+            plt.savefig(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  'confusion_matrix_test.png'), dpi=300, bbox_inches='tight')
 
-        parameters['accuracy'] = cm.diagonal().sum() / cm.sum()
-        parameters['f1_score_train'] = f1_train
-        parameters['f1_score_test'] = f1
+            parameters['accuracy'] = cm.diagonal().sum() / cm.sum()
+            parameters['f1_score_train'] = f1_train
+            parameters['f1_score_test'] = f1
 
-        pd.DataFrame(parameters).to_csv(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  'parameters.csv'))
-        print("Parameters saved at ", os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  'parameters.csv'))    
+            pd.DataFrame(parameters).to_csv(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  'parameters.csv'))
+            print("Parameters saved at ", os.path.join(parameters['safety_save_path'], parameters['subfolder_name'], f"round_{i}",  'parameters.csv'))    
 
 
-        if data_fulfilled:
-            print("Data fulfilled")
-            break
+            if data_fulfilled:
+                print("Data fulfilled")
+                break
 
-        pseudo_labels, y_high_confidence_idx = pseudo_label_generation(model, test_loader, criterion, confidence_threshold=0.95)
-        pseudo_labels = pseudo_labels.cpu().numpy()
-        y_high_confidence_idx = y_high_confidence_idx.cpu().numpy()
-        print("update data labels")
-        
-        # print(pseudo_labels, y_high_confidence_idx)
-        for i,idx in tqdm(enumerate(y_high_confidence_idx)):
-            data_test.loc[idx, 'label'] = pseudo_labels[i]
-        data_update = data_test.loc[y_high_confidence_idx,:].reset_index(drop=True)
-        data_ls = pd.concat([data_ls, data_update], axis=0).reset_index(drop=True)
-        # data_ls['label'] = data_ls['label'].apply(lambda x: 1 if x == 1 else 0)
-        data_test = data_test[~data_test.index.isin(y_high_confidence_idx)].reset_index(drop=True)
-        print(f"Confidence threshold: {confidence_threshold}, High confidence samples: {len(y_high_confidence_idx)}, updated data samples: {len(data_ls)}, rest test samples: {len(data_test)}")
-        if len(data_ls) > 0.2 * (len(data_ls) + len(data_test)):
-            data_fulfilled = True
+            pseudo_labels, y_high_confidence_idx = pseudo_label_generation(model, test_loader, criterion, confidence_threshold=0.95)
+            pseudo_labels = pseudo_labels.cpu().numpy()
+            y_high_confidence_idx = y_high_confidence_idx.cpu().numpy()
+            print("update data labels")
+            
+            # print(pseudo_labels, y_high_confidence_idx)
+            for i,idx in tqdm(enumerate(y_high_confidence_idx)):
+                data_test.loc[idx, 'label'] = pseudo_labels[i]
+            data_update = data_test.loc[y_high_confidence_idx,:].reset_index(drop=True)
+            data_ls = pd.concat([data_ls, data_update], axis=0).reset_index(drop=True)
+            # data_ls['label'] = data_ls['label'].apply(lambda x: 1 if x == 1 else 0)
+            data_test = data_test[~data_test.index.isin(y_high_confidence_idx)].reset_index(drop=True)
+            print(f"Confidence threshold: {confidence_threshold}, High confidence samples: {len(y_high_confidence_idx)}, updated data samples: {len(data_ls)}, rest test samples: {len(data_test)}")
+            if len(data_ls) > 0.2 * (len(data_ls) + len(data_test)):
+                data_fulfilled = True
 
 
 if __name__ == '__main__':
