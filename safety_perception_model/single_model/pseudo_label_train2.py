@@ -404,7 +404,7 @@ def main(variables_dict=None):
     # parameters
     parameters = {
         'train_type': "classification",
-        'placepulse_datapath': "/data2/cehou/LLM_safety/img_text_data/finished/dataset_30_male_HongKong_traffic accident_GSV_all_4973.pkl",
+        'placepulse_datapath': "/data2/cehou/LLM_safety/img_text_data/finished/dataset_60_female_HongKong_traffic accident_GSV_all_4685.pkl",
         'safety_save_path' : f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/",
         'safety_model_save_name':"model_baseline.pt",
         'subfolder_name': 'baseline',
@@ -440,7 +440,7 @@ def main(variables_dict=None):
     if not os.path.exists(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'])):
         os.makedirs(os.path.join(parameters['safety_save_path'], parameters['subfolder_name']))
         
-    device = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     image_extractor = ImageExtractor(pretrained_model=parameters['visual_feature_extractor']) # [128, 512]
     text_extractor = TextExtractor(pretrained_model=parameters['text_feature_extractor']) # [128, 768]
     image_adaptor = Adaptor(input_dim=parameters['image_input_dim'], projection_dim=parameters['adaptor_output_dim'], data_type='image') # [128, 256]
@@ -494,7 +494,7 @@ def main(variables_dict=None):
                     data = pd.read_pickle(parameters['placepulse_datapath'])
                     
                 data['label'] = 0
-                data = data.rename(columns={'text_description_age': 'text_description_short',
+                data = data.rename(columns={'text_description_gender': 'text_description_short',
                                             'panoid': 'Image_ID',})
                 data_ls = data.sample(n=parameters['batch_size'], random_state=1).reset_index(drop=True)
                 data_test = data.copy()
@@ -621,7 +621,7 @@ if __name__ == '__main__':
         print(combination)
         input_dict = dict(zip(variables_dict.keys(), combination))
         # input_dict['subfolder_name'] = '_'.join([f"{key}_{value}" for key, value in input_dict.items()])
-        input_dict['subfolder_name'] = "model_30_male_HongKong_traffic accident_GSV" 
+        input_dict['subfolder_name'] = "model_60_female_HongKong_traffic accident_GSV_gender" 
         input_dict['safety_save_path'] = f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/pseudo_label_from_pretrain_20250108"
         os.makedirs(input_dict['safety_save_path'], exist_ok=True)
 
