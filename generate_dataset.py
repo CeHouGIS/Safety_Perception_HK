@@ -1,5 +1,9 @@
 # generate baseline data
-# python /code/LLM-crime/generate_dataset.py --visible-device "3" --age "baseline" --gender "baseline" --location "baseline" --event "baseline" --img-type "PlacePulse" --start-from 3084 --data-num 5264 --batch-size 4
+# python /code/LLM-crime/generate_dataset.py --visible-device "3" --age "baseline" --gender "baseline" --location "baseline" --event "baseline" --img-type "Stockholm" --start-from 0 --data-num 5000 --batch-size 10
+# python /code/LLM-crime/generate_dataset.py --visible-device "2" --age "30" --gender "male" --location "Stockholm, Sweden" --event "theft or robbery" --img-type "Stockholm" --start-from 0 --data-num 5000 --batch-size 4
+# python /code/LLM-crime/generate_dataset.py --visible-device "1" --age "60" --gender "male" --location "Stockholm, Sweden" --event "theft or robbery" --img-type "Stockholm" --start-from 0 --data-num 5000 --batch-size 4
+# python /code/LLM-crime/generate_dataset.py --visible-device "0" --age "30" --gender "female" --location "Stockholm, Sweden" --event "theft or robbery" --img-type "Stockholm" --start-from 0 --data-num 5000 --batch-size 4
+
 
 # python /code/LLM-crime/generate_dataset.py --visible-device "1" --age "baseline" --gender "baseline" --location "baseline" --event "baseline" --img-type "GSV" --start-from 0 --data-num 4989 --batch-size 6
 # python /code/LLM-crime/generate_dataset.py --visible-device "2" --age "30" --gender "male" --location "HongKong" --event "murder" --img-type "GSV" --start-from 1900 --data-num 4989 --batch-size 4
@@ -45,7 +49,7 @@ parser.add_argument('--img-type', default='GSV', type=str,
                     help='GSV or PlacePulse')
 parser.add_argument('--reference-dataset', default="/data1/cehou_data/LLM_safety/img_text_data/dataset_baseline_baseline_baseline_baseline_501.pkl", type=str,
                     help='event of virtual agent for safety perception')
-parser.add_argument('--metadata-path', default="/data2/cehou/LLM_safety/GSV/GSV_metadata_sampled_5000.csv", type=str,
+parser.add_argument('--metadata-path', default="/data2/cehou/LLM_safety/Stockholm/safety_score.csv", type=str,
                     help='event of virtual agent for safety perception')
 parser.add_argument('--start-from', default=0, type=int,
                     help='event of virtual agent for safety perception')
@@ -81,6 +85,8 @@ def count_characters(s):
 def get_img(GSV_metadata, GSV_rootpath, idx, img_size, img_type='GSV'):
     GSV_name = GSV_metadata.iloc[idx]['panoid']
     if img_type == 'PlacePulse':
+        GSV_img = np.array(Image.open(f"{GSV_rootpath}/{GSV_name}.jpg"))
+    if img_type == 'Stockholm':
         GSV_img = np.array(Image.open(f"{GSV_rootpath}/{GSV_name}.jpg"))
     if img_type == 'GSV':
         GSV_list = [f"{GSV_rootpath}/{GSV_name[0]}/{GSV_name[1]}/{GSV_name}_{angle}.jpg" for angle in range(0, 360, 90)]
@@ -141,6 +147,17 @@ def generate_dataset_block(GSV_idx, GSV_name, GSV_rootpath, answers, profile, im
                 "location": profile['location'],
                 "event": profile['event']
                 }
+            elif img_type == 'Stockholm':
+                dataset_unit = {
+                "GSV_idx": GSV_idx,
+                "GSV_name": GSV_name,
+                "panoid":f"{GSV_rootpath}/{GSV_name}.jpg",
+                "text_description": answers,
+                "age":profile['age'],
+                "gender": profile['gender'],
+                "location": profile['location'],
+                "event": profile['event']
+                }
         else:
             answer_gender = answers[i].split('<\\s>')[1].split(' [/INST] ')[1] # gender
             answer_age = answers[i].split('<\\s>')[2].split(' [/INST] ')[1] # age
@@ -160,6 +177,17 @@ def generate_dataset_block(GSV_idx, GSV_name, GSV_rootpath, answers, profile, im
                 "text_description_location": answer_location,
                 }
             elif img_type == 'PlacePulse':
+                dataset_unit = {
+                "GSV_idx": GSV_idx,
+                "GSV_name": GSV_name,
+                "panoid":f"{GSV_rootpath}/{GSV_name}.jpg",
+                "text_description": answers,
+                "age":profile['age'],
+                "gender": profile['gender'],
+                "location": profile['location'],
+                "event": profile['event']
+                }
+            elif img_type == 'Stockholm':
                 dataset_unit = {
                 "GSV_idx": GSV_idx,
                 "GSV_name": GSV_name,
@@ -227,6 +255,12 @@ if __name__ == '__main__':
         # GSV_metadata_path = '/data2/cehou/LLM_safety/PlacePulse2.0/train_data_need_label.csv' # Place Pulse SVI
         # GSV_metadata_path = "/data2/cehou/LLM_safety/PlacePulse2.0/train_data_5264_notprocess.csv"
         GSV_metadata = pd.read_csv(GSV_metadata_path) 
+    elif args.img_type == 'Stockholm':
+        GSV_rootpath = "/data2/cehou/LLM_safety/Stockholm/GSV_5000_2"
+        GSV_metadata_path = args.metadata_path
+        # GSV_metadata_path = '/data2/cehou/LLM_safety/PlacePulse2.0/train_data_need_label.csv' # Place Pulse SVI
+        # GSV_metadata_path = "/data2/cehou/LLM_safety/PlacePulse2.0/train_data_5264_notprocess.csv"
+        GSV_metadata = pd.read_csv(GSV_metadata_path) 
         
     if args.specific_img == False:  
         # random_indices = GSV_metadata.sample(n=args.sample_size).index.tolist()
@@ -257,6 +291,8 @@ if __name__ == '__main__':
         print(f"Processing {sub_range}")
         if args.img_type == 'PlacePulse':
             GSV_imgs = [Image.fromarray(get_img(GSV_metadata, GSV_rootpath, i, img_size, "PlacePulse")) for i in sub_range]
+        if args.img_type == 'Stockholm':
+            GSV_imgs = [Image.fromarray(get_img(GSV_metadata, GSV_rootpath, i, img_size, "Stockholm")) for i in sub_range]
         elif args.img_type == 'GSV':
             GSV_imgs = [get_img(GSV_metadata, GSV_rootpath, i, img_size, "GSV") for i in sub_range]
 
@@ -290,7 +326,7 @@ if __name__ == '__main__':
             for i in range(len(dataset_list)):
                 tem = pd.concat([tem, dataset_list[i]], axis=0)
             tem = tem.reset_index(drop=True)
-            with open(f'/data2/cehou/LLM_safety/img_text_data/dataset_{args.age}_{args.gender}_{args.location}_{args.event}_{args.img_type}_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}_{args.start_from}_{idx}.pkl', 'wb') as f:
+            with open(f'/data2/cehou/LLM_safety/img_text_data/{args.img_type}_dataset_{args.age}_{args.gender}_{args.location}_{args.event}_{args.img_type}_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}_{args.start_from}_{idx}.pkl', 'wb') as f:
                 pickle.dump(tem, f)
         # if i % 10 == 0:
         #     with open(f'/data_nas/cehou/LLM_safety/dataset_{args.age}_{args.gender}_{args.location}_{args.event}_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}_{i}.pkl', 'wb') as f:
@@ -299,6 +335,6 @@ if __name__ == '__main__':
     for i in range(len(dataset_list)):
         tem = pd.concat([tem, dataset_list[i]], axis=0)
     tem = tem.reset_index(drop=True)
-    with open(f'/data2/cehou/LLM_safety/img_text_data/dataset_{args.age}_{args.gender}_{args.location}_{args.event}_{args.img_type}_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}_{args.start_from}_{idx}.pkl', 'wb') as f:
+    with open(f'/data2/cehou/LLM_safety/img_text_data/{args.img_type}_dataset_{args.age}_{args.gender}_{args.location}_{args.event}_{args.img_type}_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}_{args.start_from}_{idx}.pkl', 'wb') as f:
         pickle.dump(tem, f)
         
