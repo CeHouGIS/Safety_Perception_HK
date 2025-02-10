@@ -255,9 +255,9 @@ def main(variables_dict=None):
     # parameters
     parameters = {
         'train_type': "classification",
-        'placepulse_datapath': "/data2/cehou/LLM_safety/PlacePulse2.0/image_perception_score.csv",
-        'safety_save_path' : f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/only_img/",
-        'safety_model_save_name':"model_baseline.pt",
+        'placepulse_datapath': "/data2/cehou/LLM_safety/Stockholm//safety_score.csv",
+        'safety_save_path' : f"/data2/cehou/LLM_safety/Stockholm/GSV_5000_2/",
+        'safety_model_save_name':"Stockholm_model_baseline.pt",
         'subfolder_name': 'baseline',
         
         # model training parameters
@@ -300,14 +300,14 @@ def main(variables_dict=None):
 
     if parameters['LLM_loaded'] == True:
         LLM_pre_extractor = LLMImageFeaturePrextractor(process=parameters['LLM_feature_process'])
-        train_dataset = SafetyPerceptionDataset(data_ls[:train_num], paras=parameters, SVI_type='placepulse')
-        valid_dataset = SafetyPerceptionDataset(data_ls[train_num:train_num+valid_num], paras=parameters, SVI_type='placepulse')
-        test_dataset = SafetyPerceptionDataset(data_ls[train_num+valid_num:], paras=parameters, SVI_type='placepulse')
+        train_dataset = SafetyPerceptionDataset(data_ls[:train_num], paras=parameters, SVI_type='Stockholm')
+        valid_dataset = SafetyPerceptionDataset(data_ls[train_num:train_num+valid_num], paras=parameters, SVI_type='Stockholm')
+        test_dataset = SafetyPerceptionDataset(data_ls[train_num+valid_num:], paras=parameters, SVI_type='Stockholm')
     else:
         LLM_pre_extractor = None
-        train_dataset = SafetyPerceptionDataset(data_ls[:train_num], transform=transform, paras=parameters, SVI_type='placepulse')
-        valid_dataset = SafetyPerceptionDataset(data_ls[train_num:train_num+valid_num], transform=transform, paras=parameters, SVI_type='placepulse')
-        test_dataset = SafetyPerceptionDataset(data_ls[train_num+valid_num:], transform=transform, paras=parameters, SVI_type='placepulse')
+        train_dataset = SafetyPerceptionDataset(data_ls[:train_num], transform=transform, paras=parameters, SVI_type='Stockholm')
+        valid_dataset = SafetyPerceptionDataset(data_ls[train_num:train_num+valid_num], transform=transform, paras=parameters, SVI_type='Stockholm')
+        test_dataset = SafetyPerceptionDataset(data_ls[train_num+valid_num:], transform=transform, paras=parameters, SVI_type='Stockholm')
         
         
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=parameters['batch_size'], shuffle=True)
@@ -373,7 +373,7 @@ if __name__ == '__main__':
     for combination in tqdm(combinations):
         input_dict = dict(zip(variables_dict.keys(), combination))
         input_dict['subfolder_name'] = '_'.join([f"{key}_{value}" for key, value in input_dict.items()])
-        input_dict['safety_save_path'] = f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/only_img/multi_extractor_small_dataset_20241230"
+        input_dict['safety_save_path'] = f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/only_img/multi_extractor_small_dataset_20250210"
         os.makedirs(input_dict['safety_save_path'], exist_ok=True)
 
         # 根据模型的不同改变input_dim

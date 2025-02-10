@@ -30,6 +30,10 @@ class SafetyPerceptionDataset(Dataset):
             self.img_path = "/data2/cehou/LLM_safety/PlacePulse2.0/photo_dataset/final_photo_dataset/"
             image_path = f"{self.img_path}/{self.data.iloc[idx]['Image_ID']}.jpg"
             image = np.array(Image.open(f"{self.img_path}/{self.data.iloc[idx]['Image_ID']}.jpg"))
+        elif self.SVI_type == 'Stockholm':
+            self.img_path = "/data2/cehou/LLM_safety/Stockholm/GSV_5000_2/"
+            image_path = f"{self.img_path}/{self.data.iloc[idx]['Image_ID']}.jpg"
+            image = np.array(Image.open(f"{self.img_path}/{self.data.iloc[idx]['Image_ID']}.jpg"))
         elif self.SVI_type == 'GSV':
             image_id = self.data.iloc[idx]['Image_ID']
             for i,angle in enumerate([0, 90, 180, 270]):

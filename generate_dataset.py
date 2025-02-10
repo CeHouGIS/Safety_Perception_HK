@@ -2,7 +2,7 @@
 # python /code/LLM-crime/generate_dataset.py --visible-device "3" --age "baseline" --gender "baseline" --location "baseline" --event "baseline" --img-type "Stockholm" --start-from 0 --data-num 5000 --batch-size 10
 # python /code/LLM-crime/generate_dataset.py --visible-device "2" --age "30" --gender "male" --location "Stockholm, Sweden" --event "theft or robbery" --img-type "Stockholm" --start-from 0 --data-num 5000 --batch-size 4
 # python /code/LLM-crime/generate_dataset.py --visible-device "1" --age "60" --gender "male" --location "Stockholm, Sweden" --event "theft or robbery" --img-type "Stockholm" --start-from 0 --data-num 5000 --batch-size 4
-# python /code/LLM-crime/generate_dataset.py --visible-device "0" --age "30" --gender "female" --location "Stockholm, Sweden" --event "theft or robbery" --img-type "Stockholm" --start-from 0 --data-num 5000 --batch-size 4
+# python /code/LLM-crime/generate_dataset.py --visible-device "0" --age "60" --gender "female" --location "Stockholm, Sweden" --event "theft or robbery" --img-type "Stockholm" --start-from 3840 --data-num 5000 --batch-size 4
 
 
 # python /code/LLM-crime/generate_dataset.py --visible-device "1" --age "baseline" --gender "baseline" --location "baseline" --event "baseline" --img-type "GSV" --start-from 0 --data-num 4989 --batch-size 6
