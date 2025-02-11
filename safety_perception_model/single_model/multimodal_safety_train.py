@@ -323,7 +323,7 @@ def main(variables_dict=None):
     # parameters
     parameters = {
         'train_type': "classification",
-        'placepulse_datapath': "/data2/cehou/LLM_safety/img_text_data/baseline/tidyed/dataset_baseline_baseline_baseline_baseline_14294_withlabel.csv",
+        'placepulse_datapath': "/data2/cehou/LLM_safety/Stockholm/safety_score.csv", # HK path: "/data2/cehou/LLM_safety/img_text_data/baseline/tidyed/dataset_baseline_baseline_baseline_baseline_14294_withlabel.csv",
         'safety_save_path' : f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/",
         'safety_model_save_name':"model_baseline.pt",
         'subfolder_name': 'baseline',
@@ -373,14 +373,14 @@ def main(variables_dict=None):
 
     if parameters['LLM_loaded'] == True:
         LLM_pre_extractor = LLMImageFeaturePrextractor(process=parameters['LLM_image_feature_process'])
-        train_dataset = MultimodalSafetyPerceptionDataset(data_ls[:train_num], tokenizer=parameters['text_feature_extractor'], paras=parameters)
-        valid_dataset = MultimodalSafetyPerceptionDataset(data_ls[train_num:train_num+valid_num], tokenizer=parameters['text_feature_extractor'], paras=parameters)
-        test_dataset = MultimodalSafetyPerceptionDataset(data_ls[train_num+valid_num:], tokenizer=parameters['text_feature_extractor'], paras=parameters)
+        train_dataset = MultimodalSafetyPerceptionDataset(data_ls[:train_num], tokenizer=parameters['text_feature_extractor'], paras=parameters, SVI_type='Stockholm')
+        valid_dataset = MultimodalSafetyPerceptionDataset(data_ls[train_num:train_num+valid_num], tokenizer=parameters['text_feature_extractor'], paras=parameters, SVI_type='Stockholm')
+        test_dataset = MultimodalSafetyPerceptionDataset(data_ls[train_num+valid_num:], tokenizer=parameters['text_feature_extractor'], paras=parameters, SVI_type='Stockholm')
     else:
         LLM_pre_extractor = None
-        train_dataset = MultimodalSafetyPerceptionDataset(data_ls[:train_num], tokenizer=parameters['text_feature_extractor'], transform=transform, paras=parameters)
-        valid_dataset = MultimodalSafetyPerceptionDataset(data_ls[train_num:train_num+valid_num], tokenizer=parameters['text_feature_extractor'], transform=transform, paras=parameters)
-        test_dataset = MultimodalSafetyPerceptionDataset(data_ls[train_num+valid_num:], tokenizer=parameters['text_feature_extractor'], transform=transform, paras=parameters)
+        train_dataset = MultimodalSafetyPerceptionDataset(data_ls[:train_num], tokenizer=parameters['text_feature_extractor'], transform=transform, paras=parameters, SVI_type='Stockholm')
+        valid_dataset = MultimodalSafetyPerceptionDataset(data_ls[train_num:train_num+valid_num], tokenizer=parameters['text_feature_extractor'], transform=transform, paras=parameters, SVI_type='Stockholm')
+        test_dataset = MultimodalSafetyPerceptionDataset(data_ls[train_num+valid_num:], tokenizer=parameters['text_feature_extractor'], transform=transform, paras=parameters, SVI_type='Stockholm')
         
         
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=parameters['batch_size'], shuffle=True)
@@ -452,7 +452,7 @@ if __name__ == '__main__':
         print(combination)
         input_dict = dict(zip(variables_dict.keys(), combination))
         input_dict['subfolder_name'] = '_'.join([f"{key}_{value}" for key, value in input_dict.items()])
-        input_dict['safety_save_path'] = f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/diff_concat_20241230"
+        input_dict['safety_save_path'] = f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/Stockholm_20250211"
         os.makedirs(input_dict['safety_save_path'], exist_ok=True)
 
         input_dict['mixer_output_dim'] = input_dict['adaptor_output_dim'] * 2

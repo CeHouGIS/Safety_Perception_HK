@@ -49,7 +49,7 @@ parser.add_argument('--img-type', default='GSV', type=str,
                     help='GSV or PlacePulse')
 parser.add_argument('--reference-dataset', default="/data1/cehou_data/LLM_safety/img_text_data/dataset_baseline_baseline_baseline_baseline_501.pkl", type=str,
                     help='event of virtual agent for safety perception')
-parser.add_argument('--metadata-path', default="/data2/cehou/LLM_safety/Stockholm/safety_score.csv", type=str,
+parser.add_argument('--metadata-path', default="/data2/cehou/LLM_safety/Stockholm/safety_score_dataset_creating.csv", type=str,
                     help='event of virtual agent for safety perception')
 parser.add_argument('--start-from', default=0, type=int,
                     help='event of virtual agent for safety perception')
