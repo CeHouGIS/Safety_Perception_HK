@@ -159,10 +159,21 @@ def generate_dataset_block(GSV_idx, GSV_name, GSV_rootpath, answers, profile, im
                 "event": profile['event']
                 }
         else:
+            [print(i,'-----') for i in answers[1]]
+            print('---------------')
+            [print(i,'-----') for i in answers[2]]
+            print('---------------')
+            [print(i,'-----') for i in answers[3]]
+            print('---------------')
+            [print(i,'-----') for i in answers[4]]
+
+            # answer_gender = answers[i].split('<\\s>')[1].split(' [/INST] ')[1] # gender
+            # answer_age = answers[i].split('<\\s>')[2].split(' [/INST] ')[1] # age
+            # answer_location = answers[i].split('<\\s>')[3].split(' [/INST] ')[1] # location
             answer_gender = answers[i].split('<\\s>')[1].split(' [/INST] ')[1] # gender
             answer_age = answers[i].split('<\\s>')[2].split(' [/INST] ')[1] # age
             answer_location = answers[i].split('<\\s>')[3].split(' [/INST] ')[1] # location
-
+            
             if img_type == 'GSV':
                 dataset_unit = {
                 "GSV_idx": GSV_idx[i],
