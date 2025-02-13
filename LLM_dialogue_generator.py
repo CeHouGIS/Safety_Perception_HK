@@ -46,7 +46,10 @@ class LLMDialogueGenerator:
                 },
             ]
         else:
-            result = result.split('<\\s>')
+            # print(result)
+            # print(result.split('[/INST]')[-1])
+            result = result.split('[/INST]')[-1]
+            
             # print("=========================")    
             # for i in result:
             #     print(len(i))
