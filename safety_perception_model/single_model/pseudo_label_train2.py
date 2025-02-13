@@ -409,6 +409,7 @@ def main(variables_dict=None):
         'safety_model_save_name':"model_baseline.pt",
         'subfolder_name': 'baseline',
         'load_pretrain_model': "/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/diff_concat_20241230/lr_1e-05_adaptor_output_dim_256_mix_process_concat/model_baseline_lr_1e-05_adaptor_output_dim_256_mix_process_concat.pt",
+        # 'load_pretrain_model': "/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/diff_concat_20241230/lr_1e-05_adaptor_output_dim_256_mix_process_concat/model_baseline_lr_1e-05_adaptor_output_dim_256_mix_process_concat.pt",
         'SVI_type': 'GSV',
         
         # model training parameters
