@@ -25,7 +25,7 @@ from collections import Counter
 from sklearn.metrics import r2_score
 import shutil
 from itertools import product
-os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 
 
 # 创建模型实例
@@ -405,11 +405,11 @@ def main(variables_dict=None):
     parameters = {
         'train_type': "classification",
         'placepulse_datapath': "/data2/cehou/LLM_safety/img_text_data/finished/dataset_60_female_HongKong_theft or harassment_GSV_all_4671.pkl",
-        'safety_save_path' : f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/",
+        'safety_save_path' : f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/pseudo_label_from_pretrain_20250108",
         'safety_model_save_name':"model_baseline.pt",
         'subfolder_name': 'baseline',
+        # 'load_pretrain_model': "/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/Stockholm_20250211/lr_1e-05_adaptor_output_dim_256_mix_process_concat/model_baseline_lr_1e-05_adaptor_output_dim_256_mix_process_concat.pt",
         'load_pretrain_model': "/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/diff_concat_20241230/lr_1e-05_adaptor_output_dim_256_mix_process_concat/model_baseline_lr_1e-05_adaptor_output_dim_256_mix_process_concat.pt",
-        # 'load_pretrain_model': "/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/diff_concat_20241230/lr_1e-05_adaptor_output_dim_256_mix_process_concat/model_baseline_lr_1e-05_adaptor_output_dim_256_mix_process_concat.pt",
         'SVI_type': 'GSV',
         
         # model training parameters
@@ -441,7 +441,7 @@ def main(variables_dict=None):
     if not os.path.exists(os.path.join(parameters['safety_save_path'], parameters['subfolder_name'])):
         os.makedirs(os.path.join(parameters['safety_save_path'], parameters['subfolder_name']))
         
-    device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     image_extractor = ImageExtractor(pretrained_model=parameters['visual_feature_extractor']) # [128, 512]
     text_extractor = TextExtractor(pretrained_model=parameters['text_feature_extractor']) # [128, 768]
     image_adaptor = Adaptor(input_dim=parameters['image_input_dim'], projection_dim=parameters['adaptor_output_dim'], data_type='image') # [128, 256]
@@ -622,7 +622,7 @@ if __name__ == '__main__':
         print(combination)
         input_dict = dict(zip(variables_dict.keys(), combination))
         # input_dict['subfolder_name'] = '_'.join([f"{key}_{value}" for key, value in input_dict.items()])
-        input_dict['subfolder_name'] = "model_60_female_HongKong_traffic accident_GSV_other_crime" 
+        input_dict['subfolder_name'] = "Stockholm_model_30_female" 
         input_dict['safety_save_path'] = f"/data2/cehou/LLM_safety/LLM_models/safety_perception_model/multimodal/pseudo_label_from_pretrain_20250108"
         os.makedirs(input_dict['safety_save_path'], exist_ok=True)
 

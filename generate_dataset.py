@@ -120,7 +120,7 @@ def chat_process_batch(question_list, sub_range, GSV_imgs, max_new_tokens=1024):
     return answer_batch
 
 def generate_dataset_block(GSV_idx, GSV_name, GSV_rootpath, answers, profile, img_type):
-
+    [print(i,'-----\n') for i in answers[0].split('[/INST]')]
     data_block = []
     for i in range(len(answers)):
         if profile['gender'] == 'baseline':
@@ -159,13 +159,6 @@ def generate_dataset_block(GSV_idx, GSV_name, GSV_rootpath, answers, profile, im
                 "event": profile['event']
                 }
         else:
-            [print(i,'-----') for i in answers[1]]
-            print('---------------')
-            [print(i,'-----') for i in answers[2]]
-            print('---------------')
-            [print(i,'-----') for i in answers[3]]
-            print('---------------')
-            [print(i,'-----') for i in answers[4]]
 
             # answer_gender = answers[i].split('<\\s>')[1].split(' [/INST] ')[1] # gender
             # answer_age = answers[i].split('<\\s>')[2].split(' [/INST] ')[1] # age
